@@ -60,3 +60,6 @@ Message should be a json of following format.
 1. Create an http server for instant GCM delivery
 2. Try sending multiple times before discarding a message
 3. Requeue (GCM error or network failure) specific number of times and then discard
+4. Implement Better strructure for app error
+5. Implement priority queue
+6. Implement logger as a separate module

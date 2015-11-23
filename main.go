@@ -69,7 +69,7 @@ func initConn(config Configuration) *amqp.Connection {
 	if err != nil {
 		ticker := time.NewTicker(time.Second * 5) // TODO: Sould be Configurable
 		for range ticker.C {
-			olog("Trying to reconnect", config.DebugMode)
+			olog(fmt.Printf("Err: %s, Trying to reconnect", err.Error()), config.DebugMode)
 			conn, err = amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/")
 			// TODO: Log error in file
 			if err == nil {
