@@ -64,7 +64,7 @@ func checkSystem(config Configuration) {
 
 func initConn(config Configuration) *amqp.Connection {
 	olog("Connecting", config.DebugMode)
-	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/")
+	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
 
 	if err != nil {
 		ticker := time.NewTicker(time.Second * 5) // TODO: Sould be Configurable
