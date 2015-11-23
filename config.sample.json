@@ -6,6 +6,7 @@
     "Password": "guest",
     "Host"    : "localhost",
     "Port"    : 5672,
+    "Vhost"   : "",
     "GcmMsgQueue": "gcm_messages",
     "GcmTokenUpdateQueue" : "gcm_token_update",
     "GcmStatusInactiveQueue" : "gcm_status_inactive"
