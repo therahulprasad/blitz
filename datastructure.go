@@ -24,6 +24,7 @@ type Configuration struct {
 				   Password string `json:"Password"`
 				   Host string `json:"Host"`
 				   Port int `json:"Port"`
+				   Vhost string `json:"Vhost"`
 				   GcmMsgQueue string `json:"GcmMsgQueue"`
 				   GcmTokenUpdateQueue string `json:"GcmTokenUpdateQueue"`
 				   GcmStatusInactiveQueue string `json:"GcmStatusInactiveQueue"`
