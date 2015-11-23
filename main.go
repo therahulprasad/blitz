@@ -9,6 +9,7 @@ package main
 	DONE: What happens if RabbitMQ restarts ? >> Logic for reconnect
 	DONE: On continuous 10 GCM error, everyworker should hold for 1 minute before trying again
 	TODO: Multiple trial before discarding and check before requeing
+	TODO: % encode vhost name
 **/
 
 import (
@@ -64,13 +65,13 @@ func checkSystem(config Configuration) {
 
 func initConn(config Configuration) *amqp.Connection {
 	olog("Connecting", config.DebugMode)
-	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
 
+	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
 	if err != nil {
 		ticker := time.NewTicker(time.Second * 5) // TODO: Sould be Configurable
 		for range ticker.C {
 			olog(fmt.Sprintf("Err: %s, Trying to reconnect", err.Error()), config.DebugMode)
-			conn, err = amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/")
+			conn, err = amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
 			// TODO: Log error in file
 			if err == nil {
 				ticker.Stop()
