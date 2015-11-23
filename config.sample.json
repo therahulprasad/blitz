@@ -1,0 +1,24 @@
+{
+  "NumWorkers": 10,
+  "DebugMode" : true,
+  "Rabbit"    : {
+    "Username": "guest",
+    "Password": "guest",
+    "Host"    : "localhost",
+    "Port"    : 5672,
+    "GcmMsgQueue": "gcm_messages",
+    "GcmTokenUpdateQueue" : "gcm_token_update",
+    "GcmStatusInactiveQueue" : "gcm_status_inactive"
+  },
+  "GCM"       : {
+    "ApiKey"  : "xxxxxxxx"
+  },
+  "Logging"   : {
+    "GcmErr"   : {
+      "RootPath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/log"
+    },
+    "AppErr"  : {
+      "FilePath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/app-err.log"
+    }
+  }
+}
