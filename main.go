@@ -10,6 +10,8 @@ package main
 	DONE: On continuous 10 GCM error, everyworker should hold for 1 minute before trying again
 	TODO: Multiple trial before discarding and check before requeing
 	TODO: % encode vhost name
+	TODO: To create Queues or not should be configurable as user might not have permission to create queue
+	TODO: Write test cases
 **/
 
 import (
@@ -329,8 +331,11 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 							// sent for this topic, and do not immediately retry sending.
 							// Todo: Maybe send negative acknowledgement or move to another queue
 							ch_gcm_err <- gcmError
-						} else {
+						} else if result.Error != "" {
 							ch_gcm_err <- gcmError
+						} else {
+							// Success
+							// TODO: Implement configurable success log
 						}
 					}
 				}
