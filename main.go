@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
-	"github.com/alexjlockwood/gcm"
 	"flag"
 	"time"
 	"os/signal"
@@ -43,8 +42,11 @@ func loadConfig() Configuration {
 	err 	:= decoder.Decode(&config)
 	failOnError(err, "Failed to load config file")
 
-	if(config.NumWorkers <= 0) {
+	if config.NumWorkers <= 0 {
 		config.NumWorkers = 1
+	}
+	if config.Rabbit.ReconnectWaitTimeSec < 1 {
+		config.Rabbit.ReconnectWaitTimeSec = 1
 	}
 
 	debugModePtr := flag.Bool("debugmode", false, "true/false")
@@ -70,7 +72,7 @@ func initConn(config Configuration) *amqp.Connection {
 
 	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
 	if err != nil {
-		ticker := time.NewTicker(time.Second * 5) // TODO: Sould be Configurable
+		ticker := time.NewTicker(time.Second * time.Duration(config.Rabbit.ReconnectWaitTimeSec)) // TODO: Sould be Configurable
 		for range ticker.C {
 			olog(fmt.Sprintf("Err: %s, Trying to reconnect", err.Error()), config.DebugMode)
 			conn, err = amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
@@ -99,6 +101,12 @@ func main() {
 
 	ch_gcm_err := make(chan []byte, config.NumWorkers * 2) // Create a buffered channel so that processor won't block witing for other to write into error log
 	go logErrToFile(config.Logging.GcmErr.RootPath, ch_gcm_err, config.DebugMode)
+
+	// Create channel for killing inactive goroutines
+	killStatusInactive := make(chan int)
+	killTokenUpd := make(chan int)
+	killTokenUpdAck := make(chan int)
+	killStatusInactiveAck := make(chan int)
 
 	// Init Connection with RabbitMQ
 //	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/")
@@ -148,16 +156,11 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	olog(fmt.Sprintf("Spinning up %d workers", config.NumWorkers), config.DebugMode)
-	for i:=0; i<config.NumWorkers; i++ {
-		go gcm_processor(i, config, conn, GcmTokenUpdateQueue.Name, GcmStatusInactiveQueue.Name, gcmQueue.Name, ch_gcm_err, logger, killWorker)
-	}
-
 	chQuit := make(chan os.Signal, 2)
 	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
 
 	// Function to handle quit singal
-	go func(chQuit chan os.Signal, config Configuration, killWorker chan int) {
+	go func(chQuit chan os.Signal, config Configuration, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck chan int) {
 		// Wait for quit event
 		<-chQuit
 
@@ -166,14 +169,32 @@ func main() {
 			killWorker<- 1
 		}
 
+		// Send signal to kill worker
+		killStatusInactive<- NeedAck
+		killTokenUpd<- NeedAck
+
+		// Wait for both the goroutines to complete
+		<-killStatusInactiveAck
+		<-killTokenUpdAck
+
 		// Exit peacefully
 		os.Exit(1)
-	}(chQuit, config, killWorker)
+	}(chQuit, config, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
+
+
+	olog(fmt.Sprintf("Spinning up %d workers", config.NumWorkers), config.DebugMode)
+	for i:=0; i<config.NumWorkers; i++ {
+		go gcm_processor(i, config, conn, GcmTokenUpdateQueue.Name, GcmStatusInactiveQueue.Name, gcmQueue.Name, ch_gcm_err, logger, killWorker)
+	}
+	olog(fmt.Sprintf("Startting workers for tokenUpdate and status_inactive"), config.DebugMode)
+	go gcm_error_processor_status_inactive(config, conn, GcmStatusInactiveQueue.Name, ch_gcm_err, logger, killStatusInactive, killStatusInactiveAck)
+	go gcm_error_processor_token_update(config, conn, GcmTokenUpdateQueue.Name, ch_gcm_err, logger, killTokenUpd, killTokenUpdAck)
+
 
 	// If connection is closed restart
 	reset := conn.NotifyClose(make(chan *amqp.Error))
 	for range reset {
-		go restart(reset, config, conn, GcmStatusInactiveQueue.Name, GcmTokenUpdateQueue.Name, gcmQueue.Name, ch_gcm_err, logger, killWorker)
+		go restart(reset, config, conn, GcmStatusInactiveQueue.Name, GcmTokenUpdateQueue.Name, gcmQueue.Name, ch_gcm_err, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 	}
 
 	olog(fmt.Sprintf("[*] Waiting for messages. To exit press CTRL+C"), config.DebugMode)
@@ -182,11 +203,15 @@ func main() {
 }
 
 // Function to restart everything
-func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection, GcmStatusInactiveQueueName, GcmTokenUpdateQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger, killWorker chan int) {
+func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection, GcmStatusInactiveQueueName, GcmTokenUpdateQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
+			killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck chan int) {
 	// Kill all Worker
 	for i:=0; i<config.NumWorkers; i++ {
 		killWorker<- 1
 	}
+
+	killStatusInactive<- NoAckNeeded
+	killTokenUpd<- NoAckNeeded
 
 	conn.Close()
 	conn = initConn(config)
@@ -197,151 +222,12 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 		go gcm_processor(i, config, conn, GcmTokenUpdateQueueName, GcmStatusInactiveQueueName, GcmQueueName, ch_gcm_err, logger, killWorker)
 	}
 
+	olog("Starting error processors", config.DebugMode)
+	go gcm_error_processor_status_inactive(config, conn, GcmStatusInactiveQueueName, ch_gcm_err, logger, killStatusInactive, killStatusInactiveAck)
+	go gcm_error_processor_token_update(config, conn, GcmTokenUpdateQueueName, ch_gcm_err, logger, killTokenUpd, killTokenUpdAck)
+
 	reset = conn.NotifyClose(make(chan *amqp.Error))
 	for range reset {
-		go restart(reset, config, conn, GcmStatusInactiveQueueName, GcmTokenUpdateQueueName, GcmQueueName, ch_gcm_err, logger, killWorker)
-	}
-}
-
-
-func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName, GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger, killWorker chan int) {
-	sender := &gcm.Sender{ApiKey: config.GCM.ApiKey}
-
-	// Create new channel for Token update
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	err = ch.Qos(
-		1,     // prefetch count
-		0,     // prefetch size
-		false, // global
-	)
-	failOnError(err, "Failed to set QoS")
-
-	msgsGcm, err := ch.Consume(
-		GcmQueueName, // queue
-		"",     // consumer
-		false,  // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	failOnError(err, "Failed to register a consumer")
-
-	// Get a message
-	// Process it
-	// If processing is complete, then delete it
-
-	gcmErrCount := 0
-	for {
-		select {
-		case <-killWorker:
-			olog(fmt.Sprintf("%d Received kill command", identity), config.DebugMode)
-			return
-		case d := <-msgsGcm:
-			olog(fmt.Sprintf("%d Received a message: %s", identity, d.Body), config.DebugMode)
-
-			// GCM work
-			payload  := Message{}
-			err := json.Unmarshal(d.Body, &payload)
-			//		failOnError(err, "Unable to parse data from message queue")
-			if err != nil {
-				logger.Printf("Unmarshal error = %s, for MQ message data = %s", err.Error(), d.Body)
-				olog(fmt.Sprintf("Unmarshal error = %s, for MQ message data = %s", err.Error(), d.Body), config.DebugMode)
-			} else {
-				data 	:= payload.Body
-				regIDs	:= payload.Token
-
-				msg := gcm.NewMessage(data, regIDs...)
-				response, err := sender.Send(msg, 2)
-				if err != nil {
-					gcmErrCount++
-					logger.Printf("GCM send error = %s, data=%s",err.Error())
-					olog(fmt.Sprintf("GCM send error = %s",err.Error()), config.DebugMode)
-
-					// In case of GCM error / Requeue and continue to next
-					// TODO: Inform admin
-
-					// Same error continues without break for 10 times, sleep for a minute
-					if gcmErrCount >= 10 {
-						time.Sleep(time.Minute)
-					}
-
-					d.Nack(false, true)
-					continue
-				} else {
-					gcmErrCount = 0
-					for i, result := range response.Results {
-						gcmError, _ := json.Marshal(GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID})
-						if result.Error == "NotRegistered" || result.Error == "InvalidRegistration" {
-							statusInactiveMsg := GcmStatusInactiveMsg{Token:payload.Token[i]}
-							jsonStatusInactiveMsg, err := json.Marshal(statusInactiveMsg)
-							if err != nil {
-								logger.Printf("GCM status inactive Marshal error = %s",err.Error())
-								olog(fmt.Sprintf("GCM status inactive Marshal error = %s",err.Error()), config.DebugMode)
-							}
-
-							err = ch.Publish(
-								"",           // exchange
-								GcmStatusInactiveQueueName,       // routing key
-								false,        // mandatory
-								false,
-								amqp.Publishing{
-									DeliveryMode: amqp.Persistent,
-									ContentType:  "text/json",
-									Body:         jsonStatusInactiveMsg,
-								})
-							if err != nil {
-								logger.Printf("GCM status inactive Publish error = %s",err.Error())
-								olog(fmt.Sprintf("GCM status inactive Publish error = %s",err.Error()), config.DebugMode)
-							}
-							ch_gcm_err <- gcmError
-						} else if result.RegistrationID != "" && result.MessageID != "" {
-							// Send to Queue -> gcm_token_update
-							tokenUpdateMsg := GcmTokenUpdateMsg{OldToken:payload.Token[i], NewToken:result.RegistrationID}
-							jsonTokenUpdateMsg, err := json.Marshal(tokenUpdateMsg)
-							if err != nil {
-								logger.Printf("GCM RegistrationID update error = %s",err.Error())
-								olog(fmt.Sprintf("GCM RegistrationID update error = %s",err.Error()), config.DebugMode)
-							}
-
-							err = ch.Publish(
-								"",           // exchange
-								GcmTokenUpdateQueueName,       // routing key
-								false,        // mandatory
-								false,
-								amqp.Publishing{
-									DeliveryMode: amqp.Persistent,
-									ContentType:  "text/json",
-									Body:         jsonTokenUpdateMsg,
-								})
-							if err != nil {
-								logger.Printf("GCM RegistrationID update error = %s",err.Error())
-								olog(fmt.Sprintf("GCM RegistrationID update error = %s",err.Error()), config.DebugMode)
-							}
-						} else if result.Error == "DeviceMessageRateExceeded" {
-							// The rate of messages to a particular device is too high. Reduce the number of messages sent to
-							// this device and do not immediately retry sending to this device.
-							// Todo: Maybe send negative acknowledgement or move to another queue
-							ch_gcm_err <- gcmError
-						} else if result.Error == "TopicsMessageRateExceeded" {
-							// The rate of messages to subscribers to a particular topic is too high. Reduce the number of messages
-							// sent for this topic, and do not immediately retry sending.
-							// Todo: Maybe send negative acknowledgement or move to another queue
-							ch_gcm_err <- gcmError
-						} else if result.Error != "" {
-							ch_gcm_err <- gcmError
-						} else {
-							// Success
-							// TODO: Implement configurable success log
-						}
-					}
-				}
-			}
-			// Acknowledge to MQ that work has been processed successfully
-			d.Ack(false)
-		}
+		go restart(reset, config, conn, GcmStatusInactiveQueueName, GcmTokenUpdateQueueName, GcmQueueName, ch_gcm_err, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 	}
 }
