@@ -20,6 +20,21 @@
     },
     "AppErr"  : {
       "FilePath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/app-err.log"
+    },
+    "Db" : {
+      "DbHost" : "127.0.0.1",
+      "DbPort" : 3306,
+      "DbUser" : "root",
+      "DbPassword" : "root",
+      "DbDatabase" : "bobble_local",
+      "TransactionMinCount" : {
+        "TokenUpdate" : 2,
+        "StatusInactive" : 2
+      },
+      "Queries": {
+        "TokenUpdate":"UPDATE user_gcm SET gcm_id = ? WHERE gcm_id = ?",
+        "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
+      }
     }
   }
 }

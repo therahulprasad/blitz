@@ -8,6 +8,10 @@ type GcmError struct {
 	OldToken string
 	MulticastId int64
 }
+type CustomErrorLog struct {
+	Type string
+	Data interface{}
+}
 
 type GcmTokenUpdateMsg struct {
 	OldToken string
@@ -25,6 +29,7 @@ type Configuration struct {
 				   Host string `json:"Host"`
 				   Port int `json:"Port"`
 				   Vhost string `json:"Vhost"`
+				   ReconnectWaitTimeSec int `json:"ReconnectWaitTimeSec"`
 				   GcmMsgQueue string `json:"GcmMsgQueue"`
 				   GcmTokenUpdateQueue string `json:"GcmTokenUpdateQueue"`
 				   GcmStatusInactiveQueue string `json:"GcmStatusInactiveQueue"`
@@ -40,9 +45,30 @@ type Configuration struct {
 						   FilePath string `json:"FilePath"`
 					   } `json:"AppErr"`
 			   } `json:"Logging"`
+	Db struct {
+		   DbHost string `json:"DbHost"`
+		   DbPort int `json:"DbPort"`
+		   DbUser string `json:"DbUser"`
+		   DbPassword string `json:"DbPassword"`
+		   DbDatabase string `json:"DbDatabase"`
+		   TransactionMinCount struct {
+					  TokenUpdate int `json:"TokenUpdate"`
+					  StatusInactive int `json:"StatusInactive"`
+				  } `json:"TransactionMinCount"`
+		   Queries struct {
+					  TokenUpdate string `json:"TokenUpdate"`
+					  StatusInactive string `json:"StatusInactive"`
+				  } `json:"Queries"`
+	   } `json:"Db"`
 }
 
 type Message struct {
 	Token []string `json:"Token"`
 	Body map[string]interface{} `json:"Body"`
 }
+
+const NeedAck = 1
+const NoAckNeeded = 2
+const ErrTokenUpdateTransaction = "ErrTokenUpdateTransaction"
+const ErrStatusInactiveTransaction = "ErrStatusInactiveTransaction"
+const ErrGcmError = "ErrGcmError"

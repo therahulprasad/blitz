@@ -30,6 +30,10 @@ Message should be a json of following format.
         "Password": "guest",
         "Host"    : "localhost",
         "Port"    : 5672,
+        "Vhost"   : "bobble",
+                
+        // Seconds to wait before reconnecting (If disconnected)
+        "ReconnectWaitTimeSec" : 5,
         
         // Name of the message queue to fetch GCM messages 
         "GcmMsgQueue": "gcm_messages",
@@ -53,6 +57,29 @@ Message should be a json of following format.
         "AppErr"  : {
           "FilePath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/app-err.log"
         }
+      },
+        // Database configurations
+      "Db" : {
+        "DbHost" : "127.0.0.1",
+        "DbPort" : 3306,
+        "DbUser" : "root",
+        "DbPassword" : "root",
+        "DbDatabase" : "bobble_local",
+        
+        // Number of messages to be wait for before running transaction 
+        "TransactionMinCount" : {
+         "TokenUpdate" : 2,
+         "StatusInactive" : 2
+        },
+        
+        // Queries to run for each GCM Error message 
+        "Queries": {
+         // For TokenUpdate first ? will be replaced by NewToken and 2nd ? will be replaced by OldToken
+         "TokenUpdate":"UPDATE user_gcm SET gcm_id = ? WHERE gcm_id = ?",
+         
+         // For StatusInactive ? will be replaced by Token
+         "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
+        }
       }
     }
     
@@ -63,3 +90,4 @@ Message should be a json of following format.
 4. Implement Better strructure for app error
 5. Implement priority queue
 6. Implement logger as a separate module
+7. Write Test cases 
