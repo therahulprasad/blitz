@@ -42,7 +42,10 @@ Message should be a json of following format.
         "GcmTokenUpdateQueue" : "gcm_token_update",
         
         // Name of teh queue to send error such as NotRegistered or InvalidToken (Which can be processed later)
-        "GcmStatusInactiveQueue" : "gcm_status_inactive"
+        "GcmStatusInactiveQueue" : "gcm_status_inactive",
+        
+        // Attempt to declare queues if not present
+        "CreateQueues" : true
       },
       "GCM"       : {
         // API ket for GCM

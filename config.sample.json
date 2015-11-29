@@ -9,7 +9,8 @@
     "Vhost"   : "",
     "GcmMsgQueue": "gcm_messages",
     "GcmTokenUpdateQueue" : "gcm_token_update",
-    "GcmStatusInactiveQueue" : "gcm_status_inactive"
+    "GcmStatusInactiveQueue" : "gcm_status_inactive",
+    "CreateQueues": true
   },
   "GCM"       : {
     "ApiKey"  : "xxxxxxxx"
