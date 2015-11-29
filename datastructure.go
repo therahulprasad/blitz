@@ -33,6 +33,7 @@ type Configuration struct {
 				   GcmMsgQueue string `json:"GcmMsgQueue"`
 				   GcmTokenUpdateQueue string `json:"GcmTokenUpdateQueue"`
 				   GcmStatusInactiveQueue string `json:"GcmStatusInactiveQueue"`
+				   CreateQueues bool `json:"CreateQueues"`
 			   } `json:"Rabbit"`
 	GCM struct {
 				   ApiKey	string `json:"ApiKey"`

@@ -72,7 +72,7 @@ func initConn(config Configuration) *amqp.Connection {
 
 	conn, err := amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
 	if err != nil {
-		ticker := time.NewTicker(time.Second * time.Duration(config.Rabbit.ReconnectWaitTimeSec)) // TODO: Sould be Configurable
+		ticker := time.NewTicker(time.Second * time.Duration(config.Rabbit.ReconnectWaitTimeSec))
 		for range ticker.C {
 			olog(fmt.Sprintf("Err: %s, Trying to reconnect", err.Error()), config.DebugMode)
 			conn, err = amqp.Dial("amqp://" + config.Rabbit.Username + ":" + config.Rabbit.Password + "@" + config.Rabbit.Host + ":" + strconv.Itoa(config.Rabbit.Port) + "/" + config.Rabbit.Vhost)
@@ -83,7 +83,6 @@ func initConn(config Configuration) *amqp.Connection {
 			}
 		}
 	}
-	//	failOnError(err, "Failed to connect to RabbitMQ")
 	return conn
 }
 
@@ -119,42 +118,45 @@ func main() {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
-	gcmQueue, err := ch.QueueDeclare(
-		config.Rabbit.GcmMsgQueue, // name
-		true,         // durable
-		false,        // delete when unused
-		false,        // exclusive
-		false,        // no-wait
-		nil,          // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
+	if config.Rabbit.CreateQueues {
+		_, err = ch.QueueDeclare(
+			config.Rabbit.GcmMsgQueue, // name
+			true,         // durable
+			false,        // delete when unused
+			false,        // exclusive
+			false,        // no-wait
+			nil,          // arguments
+		)
+		failOnError(err, "Failed to declare a queue")
 
-	err = ch.Qos(
-		1,     // prefetch count
-		0,     // prefetch size
-		false, // global
-	)
-	failOnError(err, "Failed to set QoS")
+		err = ch.Qos(
+			1,     // prefetch count
+			0,     // prefetch size
+			false, // global
+		)
+		failOnError(err, "Failed to set QoS")
 
-	GcmTokenUpdateQueue, err := ch.QueueDeclare(
-		config.Rabbit.GcmTokenUpdateQueue, // name
-		true,         // durable
-		false,        // delete when unused
-		false,        // exclusive
-		false,        // no-wait
-		nil,          // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
+		_, err = ch.QueueDeclare(
+			config.Rabbit.GcmTokenUpdateQueue, // name
+			true,         // durable
+			false,        // delete when unused
+			false,        // exclusive
+			false,        // no-wait
+			nil,          // arguments
+		)
+		failOnError(err, "Failed to declare a queue")
 
-	GcmStatusInactiveQueue, err := ch.QueueDeclare(
-		config.Rabbit.GcmStatusInactiveQueue, // name
-		true,         // durable
-		false,        // delete when unused
-		false,        // exclusive
-		false,        // no-wait
-		nil,          // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
+		_, err = ch.QueueDeclare(
+			config.Rabbit.GcmStatusInactiveQueue, // name
+			true,         // durable
+			false,        // delete when unused
+			false,        // exclusive
+			false,        // no-wait
+			nil,          // arguments
+		)
+		failOnError(err, "Failed to declare a queue")
+
+	}
 
 	chQuit := make(chan os.Signal, 2)
 	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
@@ -184,17 +186,17 @@ func main() {
 
 	olog(fmt.Sprintf("Spinning up %d workers", config.NumWorkers), config.DebugMode)
 	for i:=0; i<config.NumWorkers; i++ {
-		go gcm_processor(i, config, conn, GcmTokenUpdateQueue.Name, GcmStatusInactiveQueue.Name, gcmQueue.Name, ch_gcm_err, logger, killWorker)
+		go gcm_processor(i, config, conn, config.Rabbit.GcmTokenUpdateQueue, config.Rabbit.GcmStatusInactiveQueue, config.Rabbit.GcmMsgQueue, ch_gcm_err, logger, killWorker)
 	}
 	olog(fmt.Sprintf("Startting workers for tokenUpdate and status_inactive"), config.DebugMode)
-	go gcm_error_processor_status_inactive(config, conn, GcmStatusInactiveQueue.Name, ch_gcm_err, logger, killStatusInactive, killStatusInactiveAck)
-	go gcm_error_processor_token_update(config, conn, GcmTokenUpdateQueue.Name, ch_gcm_err, logger, killTokenUpd, killTokenUpdAck)
+	go gcm_error_processor_status_inactive(config, conn, config.Rabbit.GcmStatusInactiveQueue, ch_gcm_err, logger, killStatusInactive, killStatusInactiveAck)
+	go gcm_error_processor_token_update(config, conn, config.Rabbit.GcmTokenUpdateQueue, ch_gcm_err, logger, killTokenUpd, killTokenUpdAck)
 
 
 	// If connection is closed restart
 	reset := conn.NotifyClose(make(chan *amqp.Error))
 	for range reset {
-		go restart(reset, config, conn, GcmStatusInactiveQueue.Name, GcmTokenUpdateQueue.Name, gcmQueue.Name, ch_gcm_err, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
+		go restart(reset, config, conn, config.Rabbit.GcmStatusInactiveQueue, config.Rabbit.GcmTokenUpdateQueue, config.Rabbit.GcmMsgQueue, ch_gcm_err, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 	}
 
 	olog(fmt.Sprintf("[*] Waiting for messages. To exit press CTRL+C"), config.DebugMode)
