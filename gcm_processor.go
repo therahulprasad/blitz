@@ -138,7 +138,11 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 							ch_gcm_err <- cstmErr
 						} else {
 							// Success
-							// TODO: Implement configurable success log
+							// TODO: Implement success log on separate log file
+							if config.Logging.GcmErr.LogSuccess == true {
+								success, _ := json.Marshal(CustomErrorLog{Type:ErrNoError, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID}})
+								ch_gcm_err <- success
+							}
 						}
 					}
 				}

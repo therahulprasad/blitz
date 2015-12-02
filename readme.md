@@ -54,7 +54,10 @@ Message should be a json of following format.
       "Logging"   : {
         // GCM Error log will be stored as json in date separated, hourly files
         "GcmErr"   : {
-          "RootPath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/log"
+          "RootPath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/log".
+          
+          // If true, it will log Successful GCM calls
+          "LogSuccess": true
         },
         // Plain text log for debugging errors occured within app, such as error while decoding json
         "AppErr"  : {

@@ -17,7 +17,8 @@
   },
   "Logging"   : {
     "GcmErr"   : {
-      "RootPath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/log"
+      "RootPath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/log",
+      "LogSuccess": true
     },
     "AppErr"  : {
       "FilePath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/app-err.log"
