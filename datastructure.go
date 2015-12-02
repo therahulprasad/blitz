@@ -41,6 +41,7 @@ type Configuration struct {
 	Logging struct {
 				GcmErr struct {
 						   RootPath string `json:"RootPath"`
+						   LogSuccess bool `json:"LogSuccess"`
 					   } `json:"GcmErr"`
 				AppErr struct {
 						   FilePath string `json:"FilePath"`
@@ -68,8 +69,13 @@ type Message struct {
 	Body map[string]interface{} `json:"Body"`
 }
 
+
 const NeedAck = 1
 const NoAckNeeded = 2
+
+// TODO: Make configurable
+// TODO: Refactor these consts
 const ErrTokenUpdateTransaction = "ErrTokenUpdateTransaction"
 const ErrStatusInactiveTransaction = "ErrStatusInactiveTransaction"
 const ErrGcmError = "ErrGcmError"
+const ErrNoError = "Success"

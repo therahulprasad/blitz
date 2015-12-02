@@ -12,6 +12,7 @@ package main
 	TODO: % encode vhost name
 	TODO: To create Queues or not should be configurable as user might not have permission to create queue
 	TODO: Write test cases
+	TODO: Setup travis
 **/
 
 import (
