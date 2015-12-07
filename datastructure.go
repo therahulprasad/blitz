@@ -77,7 +77,9 @@ const NoAckNeeded = 2
 
 // TODO: Make configurable
 // TODO: Refactor these consts
-const ErrTokenUpdateTransaction = "ErrTokenUpdateTransaction"
-const ErrStatusInactiveTransaction = "ErrStatusInactiveTransaction"
-const ErrGcmError = "ErrGcmError"
-const ErrNoError = "Success"
+const StatusErrTokenUpdateTransaction = "ErrTokenUpdateTransaction"
+const StatusErrStatusInactiveTransaction = "ErrStatusInactiveTransaction"
+const StatusErrGcmError = "ErrGcmError"
+const StatusSuccessGcmRequest = "SuccessGcm"
+const StatusSuccessTokenUpdateTransaction = "SuccessTokenUpdateTransaction"
+const StatusSuccessStatusInactiveTransaction = "SuccessStatusInactiveTransaction"

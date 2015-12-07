@@ -75,16 +75,32 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 						}
 						return tr.Commit()
 					})
+					t := time.Now()
+					ts := t.Format(time.RFC3339)
 					if err != nil {
+						// Error while updating db
 						olog("Database Transaction Error ErrTokenUpdateTransaction", config.DebugMode)
-						t := time.Now()
-						ts := t.Format(time.RFC3339)
-						errLog := CustomErrorLog{TimeStamp:ts, Type:ErrTokenUpdateTransaction, Data:payloads}
+
+						errInfo := make(map[string]interface{})
+						errInfo["error"] = err.Error()
+						errInfo["payloads"] = payloads
+						errLog := CustomErrorLog{TimeStamp:ts, Type:StatusErrTokenUpdateTransaction, Data:errInfo}
 						errLogByte, err := json.Marshal(errLog)
 						if err == nil {
 							ch_custom_err <- errLogByte
 						} else {
 							logger.Printf("Marshal error for ErrTokenUpdateTransaction")
+						}
+					} else {
+						// Db successfuly updated
+						olog("Database Transaction Success StatusSuccessTokenUpdateTransaction", config.DebugMode)
+						errLog := CustomErrorLog{TimeStamp:ts, Type:StatusSuccessTokenUpdateTransaction, Data:payloads}
+
+						errLogByte, err := json.Marshal(errLog)
+						if err == nil {
+							ch_custom_err <- errLogByte
+						} else {
+							logger.Printf("Marshal error for StatusSuccessTokenUpdateTransaction")
 						}
 					}
 				}
@@ -106,10 +122,13 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 					return tr.Commit()
 				})
 				if err != nil {
-					olog("Database Transaction Error while exiting + ErrTokenUpdateTransaction", config.DebugMode)
+					olog("Database Transaction Error while exiting + StatusErrTokenUpdateTransaction", config.DebugMode)
 					t := time.Now()
 					ts := t.Format(time.RFC3339)
-					errLog := CustomErrorLog{TimeStamp:ts, Type:ErrTokenUpdateTransaction, Data:payloads}
+					errInfo := make(map[string]interface{})
+					errInfo["error"] = err.Error()
+					errInfo["payloads"] = payloads
+					errLog := CustomErrorLog{TimeStamp:ts, Type:StatusErrTokenUpdateTransaction, Data:errInfo}
 					errLogByte, err := json.Marshal(errLog)
 					if err == nil {
 						ch_custom_err <- errLogByte
