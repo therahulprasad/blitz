@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"github.com/ziutek/mymysql/mysql"
 	_ "github.com/ziutek/mymysql/native"
+	"time"
 )
 
 // TODO: Try for at least 3 times before discarding a message (+ What happens if new field is added to MQ json ?)
@@ -51,7 +52,7 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 	for  {
 		select {
 		case d := <-msgsStatusInactive:
-			olog(fmt.Sprintf("Received a message: %s", d.Body), config.DebugMode)
+			olog(fmt.Sprintf("Status Inactive Received a message: %s", d.Body), config.DebugMode)
 
 			payload  := GcmStatusInactiveMsg{}
 			err := json.Unmarshal(d.Body, &payload)
@@ -76,7 +77,9 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 					})
 					if err != nil {
 						olog("Database Transaction Error ErrStatusInactiveTransaction", config.DebugMode)
-						errLog := CustomErrorLog{Type:ErrStatusInactiveTransaction, Data:payloads}
+						t := time.Now()
+						ts := t.Format(time.RFC3339)
+						errLog := CustomErrorLog{TimeStamp:ts, Type:ErrStatusInactiveTransaction, Data:payloads}
 						errLogByte, err := json.Marshal(errLog)
 						if err == nil {
 							ch_custom_err <- errLogByte
@@ -104,7 +107,9 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 				})
 				if err != nil {
 					olog("Database Transaction Error while exiting + ErrStatusInactiveTransaction", config.DebugMode)
-					errLog := CustomErrorLog{Type:ErrStatusInactiveTransaction, Data:payloads}
+					t := time.Now()
+					ts := t.Format(time.RFC3339)
+					errLog := CustomErrorLog{TimeStamp:ts, Type:ErrStatusInactiveTransaction, Data:payloads}
 					errLogByte, err := json.Marshal(errLog)
 					if err == nil {
 						ch_custom_err <- errLogByte

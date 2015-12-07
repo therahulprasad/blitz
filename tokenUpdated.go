@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"github.com/ziutek/mymysql/autorc"
 	_ "github.com/ziutek/mymysql/native"
+	"time"
 )
 
 // TODO: Try for at least 3 times before discarding a message
@@ -51,7 +52,7 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 	for {
 		select {
 		case d := <-msgsTokenUpdate:
-			olog(fmt.Sprintf("Received a message: %s", d.Body), config.DebugMode)
+			olog(fmt.Sprintf("Token Update Received a message: %s", d.Body), config.DebugMode)
 
 			payload  := GcmTokenUpdateMsg{}
 			err := json.Unmarshal(d.Body, &payload)
@@ -76,7 +77,9 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 					})
 					if err != nil {
 						olog("Database Transaction Error ErrTokenUpdateTransaction", config.DebugMode)
-						errLog := CustomErrorLog{Type:ErrTokenUpdateTransaction, Data:payloads}
+						t := time.Now()
+						ts := t.Format(time.RFC3339)
+						errLog := CustomErrorLog{TimeStamp:ts, Type:ErrTokenUpdateTransaction, Data:payloads}
 						errLogByte, err := json.Marshal(errLog)
 						if err == nil {
 							ch_custom_err <- errLogByte
@@ -104,7 +107,9 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 				})
 				if err != nil {
 					olog("Database Transaction Error while exiting + ErrTokenUpdateTransaction", config.DebugMode)
-					errLog := CustomErrorLog{Type:ErrTokenUpdateTransaction, Data:payloads}
+					t := time.Now()
+					ts := t.Format(time.RFC3339)
+					errLog := CustomErrorLog{TimeStamp:ts, Type:ErrTokenUpdateTransaction, Data:payloads}
 					errLogByte, err := json.Marshal(errLog)
 					if err == nil {
 						ch_custom_err <- errLogByte
