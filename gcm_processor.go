@@ -84,7 +84,7 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 						for i, result := range response.Results {
 							t := time.Now()
 							ts := t.Format(time.RFC3339)
-							cstmErr, _ := json.Marshal(CustomErrorLog{TimeStamp:ts, Type:ErrGcmError, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID, Worker:identity}})
+							cstmErr, _ := json.Marshal(CustomErrorLog{TimeStamp:ts, Type:StatusErrGcmError, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID, Worker:identity}})
 							if result.Error == "NotRegistered" || result.Error == "InvalidRegistration" {
 								statusInactiveMsg := GcmStatusInactiveMsg{Token:payload.Token[i]}
 								jsonStatusInactiveMsg, err := json.Marshal(statusInactiveMsg)
@@ -149,7 +149,7 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 								if config.Logging.GcmErr.LogSuccess == true {
 									t := time.Now()
 									ts := t.Format(time.RFC3339)
-									success, _ := json.Marshal(CustomErrorLog{TimeStamp:ts, Type:ErrNoError, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID, Worker:identity}})
+									success, _ := json.Marshal(CustomErrorLog{TimeStamp:ts, Type:StatusSuccessGcmRequest, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID, Worker:identity}})
 									ch_gcm_err <- success
 								}
 							}

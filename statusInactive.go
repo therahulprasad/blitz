@@ -75,16 +75,36 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 						}
 						return tr.Commit()
 					})
+					t := time.Now()
+					ts := t.Format(time.RFC3339)
+
 					if err != nil {
-						olog("Database Transaction Error ErrStatusInactiveTransaction", config.DebugMode)
-						t := time.Now()
-						ts := t.Format(time.RFC3339)
-						errLog := CustomErrorLog{TimeStamp:ts, Type:ErrStatusInactiveTransaction, Data:payloads}
+						// ERROR WHILE UPDATING DB
+
+						olog("Database Transaction Error StatusErrStatusInactiveTransaction", config.DebugMode)
+
+						errInfo := make(map[string]interface{})
+						errInfo["error"] = err.Error()
+						errInfo["payloads"] = payloads
+						errLog := CustomErrorLog{TimeStamp:ts, Type:StatusErrStatusInactiveTransaction, Data:errInfo}
+
 						errLogByte, err := json.Marshal(errLog)
 						if err == nil {
 							ch_custom_err <- errLogByte
 						} else {
 							logger.Printf("Marshal error for ErrStatusInactiveTransaction")
+						}
+					} else {
+						// SUCCESSFULLY UPDATED
+
+						olog("Database Transaction Success StatusSuccessStatusInactiveTransaction", config.DebugMode)
+						errLog := CustomErrorLog{TimeStamp:ts, Type:StatusSuccessStatusInactiveTransaction, Data:payloads}
+
+						errLogByte, err := json.Marshal(errLog)
+						if err == nil {
+							ch_custom_err <- errLogByte
+						} else {
+							logger.Printf("Marshal error for StatusErrStatusInactiveTransaction")
 						}
 					}
 				}
@@ -106,10 +126,13 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 					return tr.Commit()
 				})
 				if err != nil {
-					olog("Database Transaction Error while exiting + ErrStatusInactiveTransaction", config.DebugMode)
+					olog("Database Transaction Error while exiting + StatusErrStatusInactiveTransaction", config.DebugMode)
 					t := time.Now()
 					ts := t.Format(time.RFC3339)
-					errLog := CustomErrorLog{TimeStamp:ts, Type:ErrStatusInactiveTransaction, Data:payloads}
+					errInfo := make(map[string]interface{})
+					errInfo["error"] = err.Error()
+					errInfo["payloads"] = payloads
+					errLog := CustomErrorLog{TimeStamp:ts, Type:StatusErrStatusInactiveTransaction, Data:errInfo}
 					errLogByte, err := json.Marshal(errLog)
 					if err == nil {
 						ch_custom_err <- errLogByte

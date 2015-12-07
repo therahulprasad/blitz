@@ -18,6 +18,7 @@ package main
 	DONE: Add worker information to logs
 	TODO: Separate logs for separate workers
 	TODO: App error should be kept in proper way
+	TODO: Do not start this app, if its already running (pgrep blitz)
 **/
 
 import (

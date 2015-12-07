@@ -14,7 +14,6 @@ func logErrToFile(rootpath string, errInfo chan []byte, debugmode bool) {
 
 	// For All Gcm Error sent log it into a file
 	for e := range errInfo {
-		olog("Err recieved", debugmode)
 		t := time.Now()
 		dateFolder := t.Format("2006-01-02")
 		hourFolder := strconv.Itoa(t.Hour())
@@ -43,27 +42,20 @@ func logErrToFile(rootpath string, errInfo chan []byte, debugmode bool) {
 				errFileInfo.hour = hourFolder
 
 				dWrite := e
-				olog(fmt.Sprintf("trying to write this: %s", dWrite), debugmode)
 				_, err := fp.Write(append(dWrite[:], newline[:]...))
 				fp.Sync()
 				if err != nil {
-					olog(fmt.Sprintf("Error occured while writing + " + err.Error()), debugmode)
-				} else {
-					olog(fmt.Sprintf("Data written"), debugmode)
+					olog(fmt.Sprintf("Error occured while writing + " + err.Error() + " Payload: %s", dWrite), debugmode)
 				}
 			} else {
 				failOnError(err, "Could not create/open log file : " + fpath)
 			}
 		} else {
-			olog("Using previously created FP", debugmode)
 			dWrite := e
-			olog(fmt.Sprintf("trying to write this: %s", dWrite), debugmode)
 			_, err := fp.Write(append(dWrite[:], newline[:]...))
 			fp.Sync()
 			if err != nil {
-				olog(fmt.Sprintf("Error occured while writing + " + err.Error()), debugmode)
-			} else {
-				olog(fmt.Sprintf("Data written"), debugmode)
+				olog(fmt.Sprintf("Error occured while writing + " + err.Error() + " Payload: %s", dWrite), debugmode)
 			}
 		}
 	}
