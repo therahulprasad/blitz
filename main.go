@@ -13,6 +13,11 @@ package main
 	TODO: To create Queues or not should be configurable as user might not have permission to create queue
 	TODO: Write test cases
 	TODO: Setup travis
+	DONE: Add timestamp to logs
+	TODO: handle log separetly, Dont process it one by one
+	DONE: Add worker information to logs
+	TODO: Separate logs for separate workers
+	TODO: App error should be kept in proper way
 **/
 
 import (
@@ -98,6 +103,7 @@ func main() {
 	ae, err := os.OpenFile(config.Logging.AppErr.FilePath, os.O_CREATE | os.O_APPEND | os.O_WRONLY, 0666)
 	failOnError(err, "Unable to open App Error Log file")
 	logger := log.New(ae, "", log.LstdFlags | log.Lshortfile)
+	logger.Printf("Starting Service. BTW, its not an error ;)")
 
 	ch_gcm_err := make(chan []byte, config.NumWorkers * 2) // Create a buffered channel so that processor won't block witing for other to write into error log
 	go logErrToFile(config.Logging.GcmErr.RootPath, ch_gcm_err, config.DebugMode)

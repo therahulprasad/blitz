@@ -7,8 +7,10 @@ type GcmError struct {
 	Result gcm.Result
 	OldToken string
 	MulticastId int64
+	Worker int
 }
 type CustomErrorLog struct {
+	TimeStamp string
 	Type string
 	Data interface{}
 }
