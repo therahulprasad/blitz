@@ -19,6 +19,10 @@ package main
 	TODO: Separate logs for separate workers
 	TODO: App error should be kept in proper way
 	TODO: Do not start this app, if its already running (pgrep blitz)
+	TODO: Implement multiple types of GCM Error (Not Registed / Invalid....)
+	TODO: After every database call, goroutine should wait for few seconds, configurable
+	TODO: Sucess log for database writes should be configurable
+	TODO: TransactionMinCount from config not working
 **/
 
 import (
