@@ -13,12 +13,13 @@ import (
 
 // TODO: Try for at least 3 times before discarding a message (+ What happens if new field is added to MQ json ?)
 // DONE: Implement kill channel for the goroutine
-func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connection, GcmStatusInactiveQueueName string, ch_custom_err chan []byte, logger *log.Logger, killStatusInactive, killStatusInactiveAck chan int) {
+func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connection, GcmStatusInactiveQueueName string,
+		ch_custom_err chan []byte, logger *log.Logger, killStatusInactive, killStatusInactiveAck chan int, gq GcmQueue) {
 	// Connect to a database
 	db := autorc.New("tcp", "", config.Db.DbHost+":"+strconv.Itoa(config.Db.DbPort), config.Db.DbUser, config.Db.DbPassword, config.Db.DbDatabase)
 
 	var upd autorc.Stmt
-	err := db.PrepareOnce(&upd, config.Db.Queries.StatusInactive)
+	err := db.PrepareOnce(&upd, gq.Queries.StatusInactive)
 	if err != nil {
 		failOnError(err, "Could not create prepared statement")
 	}

@@ -23,7 +23,6 @@ type GcmStatusInactiveMsg struct {
 	Token string
 }
 type Configuration struct {
-	NumWorkers int `json:"NumWorkers"`
 	DebugMode bool `json:"DebugMode"`
 	Rabbit struct {
 				   Username string `json:"Username"`
@@ -32,11 +31,9 @@ type Configuration struct {
 				   Port int `json:"Port"`
 				   Vhost string `json:"Vhost"`
 				   ReconnectWaitTimeSec int `json:"ReconnectWaitTimeSec"`
-				   GcmMsgQueue string `json:"GcmMsgQueue"`
-				   GcmTokenUpdateQueue string `json:"GcmTokenUpdateQueue"`
-				   GcmStatusInactiveQueue string `json:"GcmStatusInactiveQueue"`
 				   CreateQueues bool `json:"CreateQueues"`
 			   } `json:"Rabbit"`
+	GcmQueues []GcmQueue `json:"GcmQueues"`
 	GCM struct {
 				   ApiKey	string `json:"ApiKey"`
 			   } `json:"GCM"`
@@ -59,16 +56,25 @@ type Configuration struct {
 					  TokenUpdate int `json:"TokenUpdate"`
 					  StatusInactive int `json:"StatusInactive"`
 				  } `json:"TransactionMinCount"`
-		   Queries struct {
-					  TokenUpdate string `json:"TokenUpdate"`
-					  StatusInactive string `json:"StatusInactive"`
-				  } `json:"Queries"`
 	   } `json:"Db"`
 }
 
 type Message struct {
 	Token []string `json:"Token"`
 	Body map[string]interface{} `json:"Body"`
+}
+
+type GcmQueue struct {
+	Identifier string `json:"identifier"`
+	Name string `json:"Name"`
+	Numworkers int `json:"NumWorkers"`
+	ApiKey string `json:"ApiKey"`
+	GcmTokenUpdateQueue string `json:"GcmTokenUpdateQueue"`
+	GcmStatusInactiveQueue string `json:"GcmStatusInactiveQueue"`
+	Queries struct {
+				TokenUpdate string `json:"TokenUpdate"`
+				StatusInactive string `json:"StatusInactive"`
+			} `json:"Queries"`
 }
 
 

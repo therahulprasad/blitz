@@ -8,8 +8,10 @@ import (
 	"time"
 )
 
-func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName, GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger, killWorker chan int) {
-	sender := &gcm.Sender{ApiKey: config.GCM.ApiKey}
+func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName,
+					GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
+					killWorker chan int, gcmQueue GcmQueue) {
+	sender := &gcm.Sender{ApiKey: gcmQueue.ApiKey}
 
 	// Create new channel for Token update
 	ch, err := conn.Channel()

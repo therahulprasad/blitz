@@ -13,12 +13,13 @@ import (
 
 // TODO: Try for at least 3 times before discarding a message
 // DONE: Implement kill channel for the goroutine
-func gcm_error_processor_token_update(config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName string, ch_custom_err chan []byte, logger *log.Logger, killTokenUpd, killTokenUpdAck chan int) {
+func gcm_error_processor_token_update(config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName string,
+		ch_custom_err chan []byte, logger *log.Logger, killTokenUpd, killTokenUpdAck chan int, gq GcmQueue) {
 	// Connect to a database
 	db := autorc.New("tcp", "", config.Db.DbHost+":"+strconv.Itoa(config.Db.DbPort), config.Db.DbUser, config.Db.DbPassword, config.Db.DbDatabase)
 
 	var upd autorc.Stmt
-	err := db.PrepareOnce(&upd, config.Db.Queries.TokenUpdate)
+	err := db.PrepareOnce(&upd, gq.Queries.TokenUpdate)
 	if err != nil {
 		failOnError(err, "Could not create prepared statement")
 	}
