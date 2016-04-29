@@ -46,7 +46,10 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 		case <-killWorker:
 			olog(fmt.Sprintf("%d Received kill command", identity), config.DebugMode)
 			return
-		case d := <-msgsGcm:
+		case d, ok := <-msgsGcm:
+			if !ok {
+				continue
+			}
 			olog(fmt.Sprintf("%d Worker Received a message: %s", identity, d.Body), config.DebugMode)
 
 			// GCM work
@@ -84,9 +87,10 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 					// server, without getting delayed by processing
 					go func() {
 						for i, result := range response.Results {
+							isSentToClientSuccesfully := StatusErrGcmError
 							t := time.Now()
 							ts := t.Format(time.RFC3339)
-							cstmErr, _ := json.Marshal(CustomErrorLog{TimeStamp:ts, Type:StatusErrGcmError, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID, Worker:identity}})
+
 							if result.Error == "NotRegistered" || result.Error == "InvalidRegistration" {
 								statusInactiveMsg := GcmStatusInactiveMsg{Token:payload.Token[i]}
 								jsonStatusInactiveMsg, err := json.Marshal(statusInactiveMsg)
@@ -109,8 +113,10 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 									logger.Printf("GCM status inactive Publish error = %s",err.Error())
 									olog(fmt.Sprintf("GCM status inactive Publish error = %s",err.Error()), config.DebugMode)
 								}
-								ch_gcm_err <- cstmErr
+
 							} else if result.RegistrationID != "" && result.MessageID != "" {
+								// Sent succesfully but google reported that GCM id has been updated
+
 								// Send to Queue -> gcm_token_update
 								tokenUpdateMsg := GcmTokenUpdateMsg{OldToken:payload.Token[i], NewToken:result.RegistrationID}
 								jsonTokenUpdateMsg, err := json.Marshal(tokenUpdateMsg)
@@ -133,28 +139,30 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 									logger.Printf("GCM RegistrationID update error = %s",err.Error())
 									olog(fmt.Sprintf("GCM RegistrationID update error = %s",err.Error()), config.DebugMode)
 								}
+
+								// Sent succesfully
+								isSentToClientSuccesfully = StatusSuccessGcmRequest
 							} else if result.Error == "DeviceMessageRateExceeded" {
 								// The rate of messages to a particular device is too high. Reduce the number of messages sent to
 								// this device and do not immediately retry sending to this device.
 								// Todo: Maybe send negative acknowledgement or move to another queue
-								ch_gcm_err <- cstmErr
 							} else if result.Error == "TopicsMessageRateExceeded" {
 								// The rate of messages to subscribers to a particular topic is too high. Reduce the number of messages
 								// sent for this topic, and do not immediately retry sending.
 								// Todo: Maybe send negative acknowledgement or move to another queue
-								ch_gcm_err <- cstmErr
 							} else if result.Error != "" {
-								ch_gcm_err <- cstmErr
+								// TODO: Do some special procesing for these things
 							} else {
 								// Success
-								// TODO: Implement success log on separate log file
-								if config.Logging.GcmErr.LogSuccess == true {
-									t := time.Now()
-									ts := t.Format(time.RFC3339)
-									success, _ := json.Marshal(CustomErrorLog{TimeStamp:ts, Type:StatusSuccessGcmRequest, Data:GcmError{Result:result, OldToken:payload.Token[i], MulticastId:response.MulticastID, Worker:identity}})
-									ch_gcm_err <- success
-								}
+								isSentToClientSuccesfully = StatusSuccessGcmRequest
 							}
+
+							gcmLog, err := json.Marshal(GcmLog{TimeStamp:ts, Type:isSentToClientSuccesfully, GcmId:payload.Token[i], Data:GcmError{Result:result, MulticastId:response.MulticastID}})
+							if err != nil {
+								logger.Printf("Marshal error while logging GCM response = %s",err.Error())
+								olog(fmt.Sprintf("Marshal error while logging GCM response = %s",err.Error()), config.DebugMode)
+							}
+							ch_gcm_err <- gcmLog
 						}
 					}()
 				}

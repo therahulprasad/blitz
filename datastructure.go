@@ -5,11 +5,15 @@ import (
 
 type GcmError struct {
 	Result gcm.Result
-	OldToken string
 	MulticastId int64
-	Worker int
 }
-type CustomErrorLog struct {
+type GcmLog struct {
+	TimeStamp string
+	Type string
+	GcmId string
+	Data interface{}
+}
+type DbLog struct {
 	TimeStamp string
 	Type string
 	Data interface{}
@@ -24,6 +28,7 @@ type GcmStatusInactiveMsg struct {
 }
 type Configuration struct {
 	DebugMode bool `json:"DebugMode"`
+	SingularityPort string `json:"SingularityPort"`
 	Rabbit struct {
 				   Username string `json:"Username"`
 				   Password string `json:"Password"`
@@ -42,6 +47,10 @@ type Configuration struct {
 						   RootPath string `json:"RootPath"`
 						   LogSuccess bool `json:"LogSuccess"`
 					   } `json:"GcmErr"`
+				DbErr struct {
+						   RootPath string `json:"RootPath"`
+						   LogSuccess bool `json:"LogSuccess"`
+					   } `json:"DbErr"`
 				AppErr struct {
 						   FilePath string `json:"FilePath"`
 					   } `json:"AppErr"`
@@ -56,6 +65,10 @@ type Configuration struct {
 					  TokenUpdate int `json:"TokenUpdate"`
 					  StatusInactive int `json:"StatusInactive"`
 				  } `json:"TransactionMinCount"`
+		   WaitTimeMs struct {
+						  TokenUpdate int `json:"TokenUpdate"`
+						  StatusInactive int `json:"StatusInactive"`
+					  } `json:"WaitTimeMs"`
 	   } `json:"Db"`
 }
 

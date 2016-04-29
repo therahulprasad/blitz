@@ -52,7 +52,10 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 	payloads := make([]GcmStatusInactiveMsg, config.Db.TransactionMinCount.StatusInactive)
 	for  {
 		select {
-		case d := <-msgsStatusInactive:
+		case d, ok := <-msgsStatusInactive:
+			if !ok {
+				continue
+			}
 			olog(fmt.Sprintf("Status Inactive Received a message: %s", d.Body), config.DebugMode)
 
 			payload  := GcmStatusInactiveMsg{}
@@ -87,7 +90,7 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 						errInfo := make(map[string]interface{})
 						errInfo["error"] = err.Error()
 						errInfo["payloads"] = payloads
-						errLog := CustomErrorLog{TimeStamp:ts, Type:StatusErrStatusInactiveTransaction, Data:errInfo}
+						errLog := DbLog{TimeStamp:ts, Type:StatusErrStatusInactiveTransaction, Data:errInfo}
 
 						errLogByte, err := json.Marshal(errLog)
 						if err == nil {
@@ -99,7 +102,7 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 						// SUCCESSFULLY UPDATED
 
 						olog("Database Transaction Success StatusSuccessStatusInactiveTransaction", config.DebugMode)
-						errLog := CustomErrorLog{TimeStamp:ts, Type:StatusSuccessStatusInactiveTransaction, Data:payloads}
+						errLog := DbLog{TimeStamp:ts, Type:StatusSuccessStatusInactiveTransaction, Data:payloads}
 
 						errLogByte, err := json.Marshal(errLog)
 						if err == nil {
@@ -112,6 +115,9 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 			}
 			// Acknowledge to MQ that work has been processed successfully
 			d.Ack(false)
+
+			// For for specified time before running next query
+			time.Sleep(time.Duration(config.Db.WaitTimeMs.StatusInactive) * time.Millisecond)
 		case ack := <-killStatusInactive:
 			olog("Killing inactive goroutine", config.DebugMode)
 			// Write to database and exit from goroutine
@@ -133,7 +139,7 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 					errInfo := make(map[string]interface{})
 					errInfo["error"] = err.Error()
 					errInfo["payloads"] = payloads
-					errLog := CustomErrorLog{TimeStamp:ts, Type:StatusErrStatusInactiveTransaction, Data:errInfo}
+					errLog := DbLog{TimeStamp:ts, Type:StatusErrStatusInactiveTransaction, Data:errInfo}
 					errLogByte, err := json.Marshal(errLog)
 					if err == nil {
 						ch_custom_err <- errLogByte

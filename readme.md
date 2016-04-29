@@ -1,14 +1,21 @@
-# GCM worker for RabbitMQ #
+# blitz #
+__v0.1__
+This program can run a set of workers to send GCM messages concurrently. It reads messages from RabbitMQ and process it.  
 
-This program can run a set of workers to send GCM messages parallely. It reads messages from RabbitMQ and process it.  
-Message should be a json of following format. 
+Blitz uses go's concurrency model to dispatch GCM and APN messages with high throughput.
+It uses rabbitMq as message queue to fetch notification data to be sent.
+Message should be a json of following format.  
+     {
+         "Token": "xxxxxx",
+         "Body" : {
+             // Json body to be sent as notification
+         }
+     }
 
-    {
-        "Token": "xxxxxx",
-        "Body" : {
-            // Json body to be sent as notification
-        }
-    }
+
+## Dependencies ##
+1. Rabbit MQ
+1. MySql (optional) for updating status of GCM/apn token
     
 
 ## How to use ##
@@ -49,7 +56,7 @@ Message should be a json of following format.
       },
       "GCM"       : {
         // API ket for GCM
-        "ApiKey"  : "***REMOVED***"
+        "ApiKey"  : "your_api_key"
       },
       "Logging"   : {
         // GCM Error log will be stored as json in date separated, hourly files
@@ -72,7 +79,7 @@ Message should be a json of following format.
         "DbPassword" : "root",
         "DbDatabase" : "bobble_local",
         
-        // Number of messages to be wait for before running transaction 
+        // Number of messages to wait for before running transaction 
         "TransactionMinCount" : {
          "TokenUpdate" : 2,
          "StatusInactive" : 2
@@ -91,7 +98,7 @@ Message should be a json of following format.
     
 ## Todo ##
 1. Create an http server for instant GCM delivery
-2. Try sending multiple times before discarding a message
+2. In case of error Try sending multiple times before discarding a message
 3. Requeue (GCM error or network failure) specific number of times and then discard
 4. Implement Better strructure for app error
 5. Implement priority queue

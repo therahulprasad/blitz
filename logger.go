@@ -34,6 +34,7 @@ func logErrToFile(rootpath string, errInfo chan []byte, debugmode bool) {
 			fpath = fpath + ".log"
 
 			// Create new file if it does not exists
+			// TODO: Instead of opening it multiple times just open it once and if fpath changes open new file
 			fp, err = os.OpenFile(fpath, os.O_APPEND | os.O_CREATE | os.O_WRONLY, os.FileMode(int(0777)))
 			defer fp.Close()
 			if err == nil {

@@ -1,7 +1,8 @@
 package main
 
 /**
-	TODO: Run as a service
+	TODO: Run as a service script in version control
+	TODO: sh file to install it as service
 	TODO: Do not panic and die
 	TODO: Inform Admin worker to send mail for first case of 10 continuous GCM error, +15 min same error count (more than half of expected)
 
@@ -16,15 +17,18 @@ package main
 	DONE: Add timestamp to logs
 	TODO: handle log separetly, Dont process it one by one
 	DONE: Add worker information to logs
-	TODO: Separate logs for separate workers
 	TODO: App error should be kept in proper way
-	TODO: Do not start this app, if its already running (pgrep blitz)
+	DONE: Do not start this app, if its already running (pgrep blitz) Done using listening to port
 	TODO: Implement multiple types of GCM Error (Not Registed / Invalid....)
-	TODO: After every database call, goroutine should wait for few seconds, configurable
+	DONE: After every database call, goroutine should wait for few seconds, configurable
 	TODO: Sucess log for database writes should be configurable
-	TODO: TransactionMinCount from config not working
-	TODO: Add support for multiple queues with separate API keys
+	DONE: TransactionMinCount from config not working
+	DONE: Add support for multiple queues with separate API keys
+	TODO: BUG: Can not Quit application while application is trying to reconnect to rabbitmq
+	TODO: Combine olog and logger.Printf into single function
+	DONE: Implement separate log for GCM and Database
 **/
+
 
 import (
 	"fmt"
@@ -37,11 +41,12 @@ import (
 	"time"
 	"os/signal"
 	"syscall"
+	"net"
 )
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		log.Fatalf("FailOnError %s: %s", msg, err)
 		panic(fmt.Sprintf("%s: %s", msg, err))
 	}
 }
@@ -67,11 +72,20 @@ func loadConfig() Configuration {
 }
 
 func checkSystem(config Configuration) {
+	port := config.SingularityPort
+	ln, err := net.Listen("tcp", ":" + port)
+	if err != nil {
+		// Exit if port is already occupied
+		failOnError(err, "Another process is already using port " + port + " - " + err.Error())
+	}
+	go ln.Accept()
+
+
 	// Check if log directory exists, if not create it, In case of error fail
 	if _, err := os.Stat(config.Logging.GcmErr.RootPath); os.IsNotExist(err) {
 		err := os.MkdirAll(config.Logging.GcmErr.RootPath, os.FileMode(int(0777)))
 		if err != nil {
-			failOnError(err, "Directory creation error : " + err.Error())
+			failOnError(err, "Directory creation error, while creating : " + config.Logging.GcmErr.RootPath)
 		}
 	}
 
@@ -114,8 +128,10 @@ func main() {
 	logger.Printf("Starting Service. BTW, its not an error ;)")
 
 	// TODO: Get number of worker buffer from config file
-	ch_gcm_err := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
-	go logErrToFile(config.Logging.GcmErr.RootPath, ch_gcm_err, config.DebugMode)
+	ch_gcm_log := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
+	ch_db_log := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
+	go logErrToFile(config.Logging.GcmErr.RootPath, ch_gcm_log, config.DebugMode)
+	go logErrToFile(config.Logging.DbErr.RootPath, ch_db_log, config.DebugMode)
 
 	// Create channel for killing inactive goroutines
 	killStatusInactive := make(chan int)
@@ -174,9 +190,6 @@ func main() {
 			false, // global
 		)
 		failOnError(err, "Failed to set QoS")
-
-
-
 	}
 
 	chQuit := make(chan os.Signal, 2)
@@ -188,15 +201,7 @@ func main() {
 		<-chQuit
 
 		olog(fmt.Sprintf("Killing all workers"), config.DebugMode)
-		killAllWorkers(config, killWorker)
-
-		// Send signal to kill worker
-		killStatusInactive<- NeedAck
-		killTokenUpd<- NeedAck
-
-		// Wait for both the goroutines to complete
-		<-killStatusInactiveAck
-		<-killTokenUpdAck
+		killAllWorkers(config, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 
 		// Exit peacefully
 		os.Exit(1)
@@ -208,45 +213,49 @@ func main() {
 	for i:=0; i < len(config.GcmQueues); i++ {
 		for j:=0; j<config.GcmQueues[i].Numworkers; j++ {
 			go gcm_processor(j, config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, config.GcmQueues[i].GcmStatusInactiveQueue,
-								config.GcmQueues[i].Name, ch_gcm_err, logger, killWorker, config.GcmQueues[i])
+								config.GcmQueues[i].Name, ch_gcm_log, logger, killWorker, config.GcmQueues[i])
 		}
 
 		olog(fmt.Sprintf("Startting workers for tokenUpdate and status_inactive for %s", config.GcmQueues[i].Identifier), config.DebugMode)
-		go gcm_error_processor_status_inactive(config, conn, config.GcmQueues[i].GcmStatusInactiveQueue, ch_gcm_err, logger, killStatusInactive, killStatusInactiveAck, config.GcmQueues[i])
-		go gcm_error_processor_token_update(config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, ch_gcm_err, logger, killTokenUpd, killTokenUpdAck, config.GcmQueues[i])
+		go gcm_error_processor_status_inactive(config, conn, config.GcmQueues[i].GcmStatusInactiveQueue, ch_db_log, logger, killStatusInactive, killStatusInactiveAck, config.GcmQueues[i])
+		go gcm_error_processor_token_update(config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, ch_db_log, logger, killTokenUpd, killTokenUpdAck, config.GcmQueues[i])
 	}
 
 	// If connection is closed restart
 	reset := conn.NotifyClose(make(chan *amqp.Error))
 	for range reset {
-		go restart(reset, config, conn, ch_gcm_err, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
+		go restart(reset, config, conn, ch_gcm_log, ch_db_log, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 	}
 
-	olog(fmt.Sprintf("[*] Waiting for messages. To exit press CTRL+C"), config.DebugMode)
 	forever := make(chan bool)
 	<-forever
 }
 
-func killAllWorkers(config Configuration, killWorker chan int) {
+func killAllWorkers(config Configuration, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck chan int) {
 	for i:=0; i < len(config.GcmQueues); i++ {
 		for j := 0; j < config.GcmQueues[i].Numworkers; j++ {
 			killWorker<- 1
 		}
+
+		// Send signal to kill worker
+		killStatusInactive<- NoAckNeeded
+		killTokenUpd<- NoAckNeeded
+
+		// Wait for both the goroutines to complete
+//		<-killStatusInactiveAck
+//		<-killTokenUpdAck
 	}
 }
 
 // Function to restart everything
-func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection, ch_gcm_err chan []byte, logger *log.Logger,
+func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection, ch_gcm_log, ch_db_log chan []byte, logger *log.Logger,
 			killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck chan int) {
 	// Kill all Worker
-	killAllWorkers(config, killWorker)
+	killAllWorkers(config, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 
 //	for i:=0; i<config.NumWorkers; i++ {
 //		killWorker<- 1
 //	}
-
-	killStatusInactive<- NoAckNeeded
-	killTokenUpd<- NoAckNeeded
 
 	conn.Close()
 	conn = initConn(config)
@@ -257,10 +266,10 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 	for i:=0; i < len(config.GcmQueues); i++ {
 		for j:=0; j<config.GcmQueues[i].Numworkers; j++ {
 			go gcm_processor(j, config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, config.GcmQueues[i].GcmStatusInactiveQueue,
-				config.GcmQueues[i].Name, ch_gcm_err, logger, killWorker, config.GcmQueues[i])
+				config.GcmQueues[i].Name, ch_gcm_log, logger, killWorker, config.GcmQueues[i])
 		}
-		go gcm_error_processor_status_inactive(config, conn, config.GcmQueues[i].GcmStatusInactiveQueue, ch_gcm_err, logger, killStatusInactive, killStatusInactiveAck, config.GcmQueues[i])
-		go gcm_error_processor_token_update(config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, ch_gcm_err, logger, killTokenUpd, killTokenUpdAck, config.GcmQueues[i])
+		go gcm_error_processor_status_inactive(config, conn, config.GcmQueues[i].GcmStatusInactiveQueue, ch_db_log, logger, killStatusInactive, killStatusInactiveAck, config.GcmQueues[i])
+		go gcm_error_processor_token_update(config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, ch_db_log, logger, killTokenUpd, killTokenUpdAck, config.GcmQueues[i])
 	}
 
 	olog("Starting error processors", config.DebugMode)
@@ -268,6 +277,6 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 
 	reset = conn.NotifyClose(make(chan *amqp.Error))
 	for range reset {
-		go restart(reset, config, conn, ch_gcm_err, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
+		go restart(reset, config, conn, ch_gcm_log, ch_db_log, logger, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck)
 	}
 }
