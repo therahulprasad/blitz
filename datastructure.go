@@ -7,10 +7,19 @@ type GcmError struct {
 	Result gcm.Result
 	MulticastId int64
 }
+type ApnError struct {
+	Reason string
+}
 type GcmLog struct {
 	TimeStamp string
 	Type string
 	GcmId string
+	Data interface{}
+}
+type ApnLog struct {
+	TimeStamp string
+	Type string
+	ApnId string
 	Data interface{}
 }
 type DbLog struct {
@@ -26,6 +35,9 @@ type GcmTokenUpdateMsg struct {
 type GcmStatusInactiveMsg struct {
 	Token string
 }
+type ApnStatusInactiveMsg struct {
+	Token string
+}
 type Configuration struct {
 	DebugMode bool `json:"DebugMode"`
 	SingularityPort string `json:"SingularityPort"`
@@ -39,6 +51,7 @@ type Configuration struct {
 				   CreateQueues bool `json:"CreateQueues"`
 			   } `json:"Rabbit"`
 	GcmQueues []GcmQueue `json:"GcmQueues"`
+	ApnQueues []ApnQueue `json:"ApnQueues"`
 	GCM struct {
 				   ApiKey	string `json:"ApiKey"`
 			   } `json:"GCM"`
@@ -76,6 +89,10 @@ type Message struct {
 	Token []string `json:"Token"`
 	Body map[string]interface{} `json:"Body"`
 }
+type ApnMessage struct {
+	Token string `json:"Token"`
+	Body map[string]interface{} `json:"Body"`
+}
 
 type GcmQueue struct {
 	Identifier string `json:"identifier"`
@@ -89,6 +106,17 @@ type GcmQueue struct {
 				StatusInactive string `json:"StatusInactive"`
 			} `json:"Queries"`
 }
+type ApnQueue struct {
+	Identifier string `json:"Identifier"`
+	Name string `json:"Name"`
+	NumWorkers int `json:"NumWorkers"`
+	PemPath string `json:"PemPath"`
+	Topic string `json:"Topic"`
+	ApnStatusInactiveQueue string `json:"ApnStatusInactiveQueue"`
+	Queries struct {
+			   StatusInactive string `json:"StatusInactive"`
+		   } `json:"Queries"`
+}
 
 
 const NeedAck = 1
@@ -100,5 +128,7 @@ const StatusErrTokenUpdateTransaction = "ErrTokenUpdateTransaction"
 const StatusErrStatusInactiveTransaction = "ErrStatusInactiveTransaction"
 const StatusErrGcmError = "ErrGcmError"
 const StatusSuccessGcmRequest = "SuccessGcm"
+const StatusSuccessApnRequest = "SuccessApn"
+const StatusErrApnError = "ErrorApn"
 const StatusSuccessTokenUpdateTransaction = "SuccessTokenUpdateTransaction"
 const StatusSuccessStatusInactiveTransaction = "SuccessStatusInactiveTransaction"

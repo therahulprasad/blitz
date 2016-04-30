@@ -115,7 +115,7 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 			// For for specified time before running next query
 			time.Sleep(time.Duration(config.Db.WaitTimeMs.TokenUpdate) * time.Millisecond)
 		case ack := <-killTokenUpd:
-			olog("Killing inactive goroutine", config.DebugMode)
+			olog("Killing GCM token update goroutine", config.DebugMode)
 			// Write to database and exit from goroutine
 			if i > 0 {
 				i = 0
@@ -147,6 +147,8 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 			if ack == NeedAck {
 				killTokenUpdAck<- 1
 			}
+
+			olog("GCM token update goroutine killed", config.DebugMode)
 			// Exit from goroutine
 			return
 		}

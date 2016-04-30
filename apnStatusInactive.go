@@ -13,8 +13,8 @@ import (
 
 // TODO: Try for at least 3 times before discarding a message (+ What happens if new field is added to MQ json ?)
 // DONE: Implement kill channel for the goroutine
-func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connection, GcmStatusInactiveQueueName string,
-		ch_custom_err chan []byte, logger *log.Logger, killStatusInactive, killStatusInactiveAck chan int, gq GcmQueue) {
+func apn_error_processor_status_inactive(config Configuration, conn *amqp.Connection, ApnStatusInactiveQueueName string,
+ch_custom_err chan []byte, logger *log.Logger, killApnStatusInactive, killApnStatusInactiveAck chan int, gq ApnQueue) {
 	// Connect to a database
 	db := autorc.New("tcp", "", config.Db.DbHost+":"+strconv.Itoa(config.Db.DbPort), config.Db.DbUser, config.Db.DbPassword, config.Db.DbDatabase)
 
@@ -23,9 +23,8 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 	if err != nil {
 		failOnError(err, "Could not create prepared statement")
 	}
-	//	upd, _ := db.Prepare("UPDATE bobble_user_gcm SET gcm_id = ?, gcm_status = 1 WHERE gcm_id = ?")
 
-	// Create new channel for Token update
+	// Create new channel for Status Inactive
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
@@ -37,8 +36,9 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 	)
 	failOnError(err, "Failed to set QoS")
 
+	// Connect to ApnStatusInactiveQueueName channel as consumer
 	msgsStatusInactive, err := ch.Consume(
-		GcmStatusInactiveQueueName, // queue
+		ApnStatusInactiveQueueName, // queue
 		"",     // consumer
 		false,  // auto-ack
 		false,  // exclusive
@@ -49,21 +49,22 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 	failOnError(err, "Failed to register a consumer")
 
 	i := 0
-	payloads := make([]GcmStatusInactiveMsg, config.Db.TransactionMinCount.StatusInactive)
+	payloads := make([]ApnStatusInactiveMsg, config.Db.TransactionMinCount.StatusInactive)
 	for  {
 		select {
 		case d, ok := <-msgsStatusInactive:
 			if !ok {
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
-			olog(fmt.Sprintf("Status Inactive Received a message: %s", d.Body), config.DebugMode)
+			olog(fmt.Sprintf("APN Status Inactive Received a message: %s", d.Body), config.DebugMode)
 
-			payload  := GcmStatusInactiveMsg{}
+			payload  := ApnStatusInactiveMsg{}
 			err := json.Unmarshal(d.Body, &payload)
 
 			if err != nil {
-				logger.Printf("Unmarshal error for status Inactive MQ message data = %s",d.Body)
-				olog(fmt.Sprintf("Unmarshal error for Token Update MQ message data = %s",d.Body), config.DebugMode)
+				logger.Printf("Unmarshal error for APN status Inactive MQ message data = %s",d.Body)
+				olog(fmt.Sprintf("Unmarshal error for APN Token Update MQ message data = %s",d.Body), config.DebugMode)
 			} else {
 				payloads[i] = payload
 				i++
@@ -72,9 +73,11 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 					i = 0
 					err := db.Begin(func(tr mysql.Transaction, args ...interface{}) error {
 						for _, v := range payloads {
-							_, err := tr.Do(upd.Raw).Run(v.Token)
-							if err != nil {
-								return err
+							if v.Token != "" {
+								_, err := tr.Do(upd.Raw).Run(v.Token)
+								if err != nil {
+									return err
+								}
 							}
 						}
 						return tr.Commit()
@@ -100,7 +103,6 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 						}
 					} else {
 						// SUCCESSFULLY UPDATED
-
 						olog("Database Transaction Success StatusSuccessStatusInactiveTransaction", config.DebugMode)
 						errLog := DbLog{TimeStamp:ts, Type:StatusSuccessStatusInactiveTransaction, Data:payloads}
 
@@ -118,16 +120,18 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 
 			// For for specified time before running next query
 			time.Sleep(time.Duration(config.Db.WaitTimeMs.StatusInactive) * time.Millisecond)
-		case ack := <-killStatusInactive:
-			olog("Killing gcm staus inactive goroutine", config.DebugMode)
+		case ack := <-killApnStatusInactive:
+			olog("Killing APN Status Inactive goroutine", config.DebugMode)
 			// Write to database and exit from goroutine
 			if i > 0 {
 				i = 0
 				err := db.Begin(func(tr mysql.Transaction, args ...interface{}) error {
 					for _, v := range payloads {
-						_, err := tr.Do(upd.Raw).Run(v.Token)
-						if err != nil {
-							return err
+						if v.Token != "" {
+							_, err := tr.Do(upd.Raw).Run(v.Token)
+							if err != nil {
+								return err
+							}
 						}
 					}
 					return tr.Commit()
@@ -149,10 +153,10 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 				}
 			}
 			if ack == NeedAck {
-				killStatusInactiveAck<- 1
+				killApnStatusInactiveAck<- 1
 			}
 
-			olog("GCM status inactive goroutine killed", config.DebugMode)
+			olog("APN status inactive goroutine killed", config.DebugMode)
 			// Exit from goroutine
 			return
 		}

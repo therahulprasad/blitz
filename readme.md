@@ -104,3 +104,6 @@ Message should be a json of following format.
 5. Implement priority queue
 6. Implement logger as a separate module
 7. Write Test cases 
+
+## Known Bugs ##
+1. Sometimes APN/2 library gets stucks while sending notification. Quiting at that time waits for library to complete transaction, which sometimes takes too long. Try to kill it instead. 

@@ -62,7 +62,9 @@ func logErrToFile(rootpath string, errInfo chan []byte, debugmode bool) {
 	}
 }
 
-
+/**
+ * Its a debug function it prints passed string if debug mode is on
+ */
 func olog(str string, debugmode bool) {
 	if debugmode {
 		log.Println(str)
