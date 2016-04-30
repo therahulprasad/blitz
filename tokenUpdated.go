@@ -106,14 +106,14 @@ func gcm_error_processor_token_update(config Configuration, conn *amqp.Connectio
 						} else {
 							logger.Printf("Marshal error for StatusSuccessTokenUpdateTransaction")
 						}
+
+						// For for specified time before running next query
+						time.Sleep(time.Duration(config.Db.WaitTimeMs.TokenUpdate) * time.Millisecond)
 					}
 				}
 			}
 			// Acknowledge to MQ that work has been processed successfully
 			d.Ack(false)
-
-			// For for specified time before running next query
-			time.Sleep(time.Duration(config.Db.WaitTimeMs.TokenUpdate) * time.Millisecond)
 		case ack := <-killTokenUpd:
 			olog("Killing GCM token update goroutine", config.DebugMode)
 			// Write to database and exit from goroutine

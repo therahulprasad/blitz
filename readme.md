@@ -1,6 +1,6 @@
 # blitz #
-__v0.1__
-This program can run a set of workers to send GCM messages concurrently. It reads messages from RabbitMQ and process it.  
+__v0.2__
+This program can run a set of workers to send GCM (Android Notification) / APN (iOS notification) messages concurrently. It reads messages from RabbitMQ and process it.  
 
 Blitz uses go's concurrency model to dispatch GCM and APN messages with high throughput.
 It uses rabbitMq as message queue to fetch notification data to be sent.
@@ -16,7 +16,6 @@ Message should be a json of following format.
 ## Dependencies ##
 1. Rabbit MQ
 1. MySql (optional) for updating status of GCM/apn token
-    
 
 ## How to use ##
 1. Rename config.sample.json to config.json and update required fields
@@ -54,6 +53,19 @@ Message should be a json of following format.
         // Attempt to declare queues if not present
         "CreateQueues" : true
       },
+      "ApnQueues": [
+          {
+            "Identifier": "primary",
+            "Name": "apn_messages",
+            "NumWorkers": 10,
+            "PemPath": "",
+            "ApnStatusInactiveQueue": "apn_status_inactive",
+            "Topic": "com.blah.blah",
+            "Queries": {
+              "StatusInactive":"UPDATE table_name SET apn_status = '-1' WHERE apn_key LIKE ?"
+            }
+          }
+      ],
       "GCM"       : {
         // API ket for GCM
         "ApiKey"  : "your_api_key"
@@ -106,4 +118,13 @@ Message should be a json of following format.
 7. Write Test cases 
 
 ## Known Bugs ##
-1. Sometimes APN/2 library gets stucks while sending notification. Quiting at that time waits for library to complete transaction, which sometimes takes too long. Try to kill it instead. 
+1. Sometimes APN/2 library gets stucks while sending notification. Quiting at that time waits for library to complete transaction, which sometimes takes too long. Try to kill it instead.
+ 
+## Change Log ##
+0.2
+---
+Implemeted support for APN/2
+
+0.1
+---
+Implemented support for GCM

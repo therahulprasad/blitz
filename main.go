@@ -170,7 +170,7 @@ func main() {
 		// For all GCM Queues start workers
 		for j:=0; j<config.ApnQueues[i].NumWorkers; j++ {
 			go apn_processor(j, config, conn, config.ApnQueues[i].ApnStatusInactiveQueue,
-				config.ApnQueues[i].Name, ch_gcm_log, logger, killWorker, config.ApnQueues[i].Topic)
+				config.ApnQueues[i].Name, ch_gcm_log, logger, killWorker, config.ApnQueues[i].Topic, config.ApnQueues[i].PemPath)
 		}
 
 		olog(fmt.Sprintf("Startting workers for status_inactive for APN %s", config.GcmQueues[i].Identifier), config.DebugMode)
@@ -198,6 +198,11 @@ func killAllWorkers(config Configuration, killWorker, killStatusInactive, killTo
 		for j := 0; j < config.GcmQueues[i].Numworkers; j++ {
 			killWorker<- 1
 		}
+		// Kill status inactive token processor worker for GCM
+		killStatusInactive<- NeedAck
+
+		// Kill update token processor worker for GCM
+		killTokenUpd<- NeedAck
 	}
 
 	// Kill All APN workers
@@ -205,16 +210,10 @@ func killAllWorkers(config Configuration, killWorker, killStatusInactive, killTo
 		for j := 0; j < config.ApnQueues[i].NumWorkers; j++ {
 			killWorker<- 1
 		}
+
+		// Kill status inactive token processor worker for GCM
+		killApnStatusInactive<- NeedAck
 	}
-
-	// Kill status inactive token processor worker for GCM
-	killStatusInactive<- NeedAck
-
-	// Kill update token processor worker for GCM
-	killTokenUpd<- NeedAck
-
-	// Kill status inactive token processor worker for GCM
-	killApnStatusInactive<- NeedAck
 
 	// Wait for database goroutines to end
 	olog("Waiting for GCM Status Inactive service to end", config.DebugMode)
@@ -245,6 +244,18 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 		go gcm_error_processor_status_inactive(config, conn, config.GcmQueues[i].GcmStatusInactiveQueue, ch_db_log, logger, killStatusInactive, killStatusInactiveAck, config.GcmQueues[i])
 		go gcm_error_processor_token_update(config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, ch_db_log, logger, killTokenUpd, killTokenUpdAck, config.GcmQueues[i])
 	}
+	//For all APN Queues start workers
+	for i:=0; i < len(config.ApnQueues); i++ {
+		// For all GCM Queues start workers
+		for j:=0; j<config.ApnQueues[i].NumWorkers; j++ {
+			go apn_processor(j, config, conn, config.ApnQueues[i].ApnStatusInactiveQueue,
+				config.ApnQueues[i].Name, ch_gcm_log, logger, killWorker, config.ApnQueues[i].Topic, config.ApnQueues[i].PemPath)
+		}
+
+		olog(fmt.Sprintf("Startting workers for status_inactive for APN %s", config.GcmQueues[i].Identifier), config.DebugMode)
+		go apn_error_processor_status_inactive(config, conn, config.ApnQueues[i].ApnStatusInactiveQueue, ch_db_log, logger, killApnStatusInactive, killApnStatusInactiveAck, config.ApnQueues[i])
+	}
+
 
 	olog("Starting error processors", config.DebugMode)
 

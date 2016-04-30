@@ -113,13 +113,12 @@ ch_custom_err chan []byte, logger *log.Logger, killApnStatusInactive, killApnSta
 							logger.Printf("Marshal error for StatusErrStatusInactiveTransaction")
 						}
 					}
+					// For for specified time before running next query
+					time.Sleep(time.Duration(config.Db.WaitTimeMs.StatusInactive) * time.Millisecond)
 				}
 			}
 			// Acknowledge to MQ that work has been processed successfully
 			d.Ack(false)
-
-			// For for specified time before running next query
-			time.Sleep(time.Duration(config.Db.WaitTimeMs.StatusInactive) * time.Millisecond)
 		case ack := <-killApnStatusInactive:
 			olog("Killing APN Status Inactive goroutine", config.DebugMode)
 			// Write to database and exit from goroutine

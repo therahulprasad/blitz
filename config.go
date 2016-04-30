@@ -55,6 +55,15 @@ func checkSystem(config Configuration) {
 	}
 
 	// TODO: Check if app error file can be created, if not exit
+	// Check if PEM files needed for APN exists
+	for i:=0;i<len(config.ApnQueues);i++ {
+		_, err := os.Stat(config.ApnQueues[i].PemPath)
+		if err != nil {
+			failOnError(err, "Specified PEM file does not exists : " + config.ApnQueues[i].PemPath)
+		}
+	}
+
+	// TODO: Names of all the queues must be different
 
 	if len(config.GcmQueues) < 1 {
 		log.Fatalf("Config: Queues not found")

@@ -10,8 +10,8 @@ import (
 )
 
 func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName,
-	GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
-	killWorker chan int, gcmQueue GcmQueue) {
+GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
+killWorker chan int, gcmQueue GcmQueue) {
 	sender := &gcm.Sender{ApiKey: gcmQueue.ApiKey}
 
 	// Create new channel for Token update
@@ -20,20 +20,20 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 	defer ch.Close()
 
 	err = ch.Qos(
-		1,     // prefetch count
-		0,     // prefetch size
+		1, // prefetch count
+		0, // prefetch size
 		false, // global
 	)
 	failOnError(err, "Failed to set QoS")
 
 	msgsGcm, err := ch.Consume(
 		GcmQueueName, // queue
-		"",           // consumer
-		false,        // auto-ack
-		false,        // exclusive
-		false,        // no-local
-		false,        // no-wait
-		nil,          // args
+		"", // consumer
+		false, // auto-ack
+		false, // exclusive
+		false, // no-local
+		false, // no-wait
+		nil, // args
 	)
 	failOnError(err, "Failed to register a consumer")
 
@@ -55,7 +55,7 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 			}
 			olog(fmt.Sprintf("%d Worker Received a message: %s", identity, d.Body), config.DebugMode)
 
-			// GCM work
+		// GCM work
 			payload := Message{}
 			err := json.Unmarshal(d.Body, &payload)
 			if err != nil {
@@ -91,7 +91,6 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 					go func() {
 						olog(fmt.Sprintf("%s", response.Results), config.DebugMode)
 						for i, result := range response.Results {
-							olog("one", config.DebugMode)
 							isSentToClientSuccesfully := StatusErrGcmError
 							t := time.Now()
 							ts := t.Format(time.RFC3339)
@@ -172,7 +171,7 @@ func gcm_processor(identity int, config Configuration, conn *amqp.Connection, Gc
 					}()
 				}
 			}
-			// Acknowledge to MQ that work has been processed successfully
+		// Acknowledge to MQ that work has been processed successfully
 			d.Ack(false)
 		}
 	}

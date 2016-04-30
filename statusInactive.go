@@ -48,7 +48,7 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 	)
 	failOnError(err, "Failed to register a consumer")
 
-	i := 0
+	counter := 0
 	payloads := make([]GcmStatusInactiveMsg, config.Db.TransactionMinCount.StatusInactive)
 	for  {
 		select {
@@ -56,7 +56,7 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 			if !ok {
 				continue
 			}
-			olog(fmt.Sprintf("Status Inactive Received a message: %s", d.Body), config.DebugMode)
+			olog(fmt.Sprintf("GCM Status Inactive Received a message: %s", d.Body), config.DebugMode)
 
 			payload  := GcmStatusInactiveMsg{}
 			err := json.Unmarshal(d.Body, &payload)
@@ -65,11 +65,11 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 				logger.Printf("Unmarshal error for status Inactive MQ message data = %s",d.Body)
 				olog(fmt.Sprintf("Unmarshal error for Token Update MQ message data = %s",d.Body), config.DebugMode)
 			} else {
-				payloads[i] = payload
-				i++
+				payloads[counter] = payload
+				counter++
 
-				if i == config.Db.TransactionMinCount.StatusInactive {
-					i = 0
+				if counter == config.Db.TransactionMinCount.StatusInactive {
+					counter = 0
 					err := db.Begin(func(tr mysql.Transaction, args ...interface{}) error {
 						for _, v := range payloads {
 							_, err := tr.Do(upd.Raw).Run(v.Token)
@@ -110,24 +110,27 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 						} else {
 							logger.Printf("Marshal error for StatusErrStatusInactiveTransaction")
 						}
+
+						// For for specified time before running next query
+						time.Sleep(time.Duration(config.Db.WaitTimeMs.StatusInactive) * time.Millisecond)
 					}
 				}
 			}
 			// Acknowledge to MQ that work has been processed successfully
 			d.Ack(false)
-
-			// For for specified time before running next query
-			time.Sleep(time.Duration(config.Db.WaitTimeMs.StatusInactive) * time.Millisecond)
 		case ack := <-killStatusInactive:
 			olog("Killing gcm staus inactive goroutine", config.DebugMode)
 			// Write to database and exit from goroutine
-			if i > 0 {
-				i = 0
+			if counter > 0 {
+				olog("i="+fmt.Sprintf("%d", counter), config.DebugMode)
+				counter = 0
 				err := db.Begin(func(tr mysql.Transaction, args ...interface{}) error {
 					for _, v := range payloads {
-						_, err := tr.Do(upd.Raw).Run(v.Token)
-						if err != nil {
-							return err
+						if v.Token != "" {
+							_, err := tr.Do(upd.Raw).Run(v.Token)
+							if err != nil {
+								return err
+							}
 						}
 					}
 					return tr.Commit()

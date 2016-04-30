@@ -16,10 +16,10 @@ import (
  */
 func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 	ApnStatusInactiveQueueName, ApnQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
-	killWorker chan int, apnTopic string) {
+	killWorker chan int, apnTopic, pemPath string) {
 
 	// Load PEM file specified in config file required to send APN messages
-	cert, pemErr := certificate.FromPemFile("/Users/rahulprasad/GD/PEMs/ios_certificate.pem", "")
+	cert, pemErr := certificate.FromPemFile(pemPath, "")
 	failOnError(pemErr, "Failed to load PEM file for APN")
 
 	// Create a new APN Client
@@ -102,8 +102,6 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 		}
 
 		res, err := client.Push(notification)
-		fmt.Println(token)
-		fmt.Println(res)
 		if err != nil {
 			// gcmErrCount++
 			logger.Printf("APN send error = %s, data=%s", err.Error())
