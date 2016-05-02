@@ -122,7 +122,6 @@ func gcm_error_processor_status_inactive(config Configuration, conn *amqp.Connec
 			olog("Killing gcm staus inactive goroutine", config.DebugMode)
 			// Write to database and exit from goroutine
 			if counter > 0 {
-				olog("i="+fmt.Sprintf("%d", counter), config.DebugMode)
 				counter = 0
 				err := db.Begin(func(tr mysql.Transaction, args ...interface{}) error {
 					for _, v := range payloads {

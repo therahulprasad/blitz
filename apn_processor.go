@@ -15,7 +15,7 @@ import (
  * If APN is expired or invalid it sends APN key to a queue which is processed by another goroutine and updated in database
  */
 func apn_processor(identity int, config Configuration, conn *amqp.Connection,
-	ApnStatusInactiveQueueName, ApnQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
+	ApnStatusInactiveQueueName, ApnQueueName string, ch_err chan []byte, logger *log.Logger,
 	killWorker chan int, apnTopic, pemPath string) {
 
 	// Load PEM file specified in config file required to send APN messages
@@ -37,7 +37,7 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 	)
 	failOnError(err, "Failed to set QoS")
 
-	msgsGcm, err := ch.Consume(
+	msgsApn, err := ch.Consume(
 		ApnQueueName, // queue
 		"",           // consumer
 		false,        // auto-ack
@@ -58,7 +58,7 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 		olog(fmt.Sprintf("%d Received kill command", identity), config.DebugMode)
 		return
 
-		case d, ok := <-msgsGcm:
+		case d, ok := <-msgsApn:
 		//  Receieve messages from RabbitMQ,
 		if !ok {
 			// If channel is closed then wait for it to be reconnected or wait for kill signal
@@ -124,13 +124,12 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 			// Running result processor as a goroutine so that current worker can proceed with sending another APN request to
 			// server, without getting delayed by processing
 			go func() {
-				isSentToClientSuccesfully := StatusErrGcmError
+				isSentToClientSuccesfully := StatusErrApnError
 				t := time.Now()
 				ts := t.Format(time.RFC3339)
 
 				if res.StatusCode == 200 {
-					// TODO: Process Success
-					// Success
+					// Success (Log to file at bottom)
 					isSentToClientSuccesfully = StatusSuccessApnRequest
 				} else if(res.Reason == "BadDeviceToken" || res.Reason == "Unregistered") {
 					// Token error, set status of this token as inactive in database
@@ -163,11 +162,10 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 							olog(fmt.Sprintf("APN status inactive Publish error = %s", err.Error()), config.DebugMode)
 						}
 					}
+					// Error is logged automatically after this block
 				} else if (res.Reason == "TooManyRequests") {
 					// TODO: Delay sending instead of skipping
-					// Skip sending to this token
-					isSentToClientSuccesfully = StatusErrApnError
-					return
+					// Error is logged automatically after this block
 				}
 
 				apnLog, err := json.Marshal(ApnLog{TimeStamp: ts, Type: isSentToClientSuccesfully, ApnId: token, Data: ApnError{Reason:res.Reason}})
@@ -175,7 +173,7 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 					logger.Printf("Marshal error while logging APN response = %s", err.Error())
 					olog(fmt.Sprintf("Marshal error while logging APN response = %s", err.Error()), config.DebugMode)
 				}
-				ch_gcm_err <- apnLog
+				ch_err <- apnLog
 			}()
 		}
 		// Acknowledge to MQ that work has been processed successfully
