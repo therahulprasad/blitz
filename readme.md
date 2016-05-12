@@ -1,4 +1,7 @@
 # blitz #
+__v0.2.1__
+APN logging bug fixed
+
 __v0.2__
 This program can run a set of workers to send GCM (Android Notification) / APN (iOS notification) messages concurrently. It reads messages from RabbitMQ and process it.  
 
