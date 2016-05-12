@@ -1,4 +1,7 @@
 # blitz #
+__v0.2.2__
+GCM and APN logging bug fixed. If push fails, data was missing from logs. 
+
 __v0.2.1__
 APN logging bug fixed
 

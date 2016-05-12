@@ -69,7 +69,8 @@ killWorker chan int, gcmQueue GcmQueue) {
 				response, err := sender.Send(msg, 2)
 				if err != nil {
 					//					gcmErrCount++
-					logger.Printf("GCM send error = %s, data=%s", err.Error())
+					dataByteArray,_ := json.Marshal(data)
+					logger.Printf("GCM send error = %s, data=%s", err.Error(), dataByteArray)
 					olog(fmt.Sprintf("GCM send error = %s", err.Error()), config.DebugMode)
 
 					// In case of GCM error / Requeue and continue to next

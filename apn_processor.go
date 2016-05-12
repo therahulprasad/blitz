@@ -104,7 +104,8 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 		res, err := client.Push(notification)
 		if err != nil {
 			// gcmErrCount++
-			logger.Printf("APN send error = %s, data=%s", err.Error())
+			notificationByteArray, _ := json.Marshal(notification)
+			logger.Printf("APN send error = %s, data=%s", err.Error(), notificationByteArray)
 			olog(fmt.Sprintf("APN send error = %s", err.Error()), config.DebugMode)
 
 			// In case of APN error / Requeue and continue to next
