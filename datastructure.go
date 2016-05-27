@@ -54,12 +54,22 @@ type Configuration struct {
 	ApnQueues []ApnQueue `json:"ApnQueues"`
 	GCM struct {
 				   ApiKey	string `json:"ApiKey"`
+				   RequeueCount	int `json:"RequeueCount"`
 			   } `json:"GCM"`
+	APN struct {
+		    RequeueCount	int `json:"RequeueCount"`
+	    } `json:"APN"`
 	Logging struct {
 				GcmErr struct {
 						   RootPath string `json:"RootPath"`
+						   SuccessPath string `json:"SuccessPath"`
 						   LogSuccess bool `json:"LogSuccess"`
 					   } `json:"GcmErr"`
+				ApnErr struct {
+					       RootPath string `json:"RootPath"`
+					       SuccessPath string `json:"SuccessPath"`
+					       LogSuccess bool `json:"LogSuccess"`
+				       } `json:"ApnErr"`
 				DbErr struct {
 						   RootPath string `json:"RootPath"`
 						   LogSuccess bool `json:"LogSuccess"`

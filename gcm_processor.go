@@ -7,10 +7,11 @@ import (
 	"github.com/streadway/amqp"
 	"log"
 	"time"
+	"strings"
 )
 
 func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName,
-GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err chan []byte, logger *log.Logger,
+GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err, ch_gcm_log_success chan []byte, logger *log.Logger,
 killWorker chan int, gcmQueue GcmQueue) {
 	sender := &gcm.Sender{ApiKey: gcmQueue.ApiKey}
 
@@ -68,7 +69,7 @@ killWorker chan int, gcmQueue GcmQueue) {
 				msg := gcm.NewMessage(data, regIDs...)
 				response, err := sender.Send(msg, 2)
 				if err != nil {
-					//					gcmErrCount++
+					// gcmErrCount++
 					dataByteArray,_ := json.Marshal(data)
 					logger.Printf("GCM send error = %s, data=%s", err.Error(), dataByteArray)
 					olog(fmt.Sprintf("GCM send error = %s", err.Error()), config.DebugMode)
@@ -81,11 +82,41 @@ killWorker chan int, gcmQueue GcmQueue) {
 					//					if gcmErrCount >= 10 {
 					//						time.Sleep(time.Minute)
 					//					}
+					key := strings.Join(regIDs, "")
+					val, ok := retries_gcm.Get(key)
+					var valint int
+					if ok {
+						valint, ok = val.(int)
+						if ok {
+							valint = valint + 1
+						} else {
+							// Log error (This should not happen) and continue
+							logger.Printf("GCM Could not convert interface to int = %v", val)
+							olog(fmt.Sprintf("GCM Could not convert interface to int = %v", val), config.DebugMode)
+							d.Ack(false)
+							continue
+						}
+					} else {
+						valint = 1
+					}
 
+					// If already tried 5 times, then do not requeue
+					if valint >= config.GCM.RequeueCount+1 {
+						// Log it and continue
+						logger.Printf("Max Retries GCM send data=%s", dataByteArray)
+						olog(fmt.Sprintf("Max Retries GCM send error. Data = %s", dataByteArray), config.DebugMode)
+
+						retries_gcm.Remove(key)
+						d.Ack(false)
+						continue
+					}
+
+					retries_gcm.Set(key, valint)
 					d.Nack(false, true)
+
 					continue
 				} else {
-					//					gcmErrCount = 0
+					// gcmErrCount = 0
 					// TODO: Implement this as proper goroutine, its dangereous if user exists before this goroutine ends
 					// Running result processor as a goroutine so that current worker can proceed with sending another GCM request to
 					// server, without getting delayed by processing
@@ -167,7 +198,13 @@ killWorker chan int, gcmQueue GcmQueue) {
 								logger.Printf("Marshal error while logging GCM response = %s", err.Error())
 								olog(fmt.Sprintf("Marshal error while logging GCM response = %s", err.Error()), config.DebugMode)
 							}
-							ch_gcm_err <- gcmLog
+
+							if isSentToClientSuccesfully == StatusSuccessGcmRequest {
+								ch_gcm_log_success <- gcmLog
+							} else {
+								ch_gcm_err <- gcmLog
+							}
+
 						}
 					}()
 				}

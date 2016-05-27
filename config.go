@@ -28,7 +28,14 @@ func loadConfig() Configuration {
 
 	return config
 }
-
+func checkAndCreateDirectory(dirpath string) {
+	if _, err := os.Stat(dirpath); os.IsNotExist(err) {
+		err := os.MkdirAll(dirpath, os.FileMode(int(0777)))
+		if err != nil {
+			failOnError(err, "Directory creation error, while creating : " + dirpath)
+		}
+	}
+}
 func checkSystem(config Configuration) {
 	port := config.SingularityPort
 	ln, err := net.Listen("tcp", ":" + port)
@@ -40,19 +47,16 @@ func checkSystem(config Configuration) {
 
 
 	// Check if log directory exists, if not create it, In case of error fail
-	if _, err := os.Stat(config.Logging.GcmErr.RootPath); os.IsNotExist(err) {
-		err := os.MkdirAll(config.Logging.GcmErr.RootPath, os.FileMode(int(0777)))
-		if err != nil {
-			failOnError(err, "Directory creation error, while creating : " + config.Logging.GcmErr.RootPath)
-		}
+	checkAndCreateDirectory(config.Logging.GcmErr.RootPath)
+	if config.Logging.GcmErr.LogSuccess == true {
+		checkAndCreateDirectory(config.Logging.GcmErr.SuccessPath)
 	}
 
-	if _, err := os.Stat(config.Logging.DbErr.RootPath); os.IsNotExist(err) {
-		err := os.MkdirAll(config.Logging.DbErr.RootPath, os.FileMode(int(0777)))
-		if err != nil {
-			failOnError(err, "Directory creation error, while creating : " + config.Logging.DbErr.RootPath)
-		}
+	checkAndCreateDirectory(config.Logging.ApnErr.RootPath)
+	if config.Logging.ApnErr.LogSuccess == true {
+		checkAndCreateDirectory(config.Logging.ApnErr.SuccessPath)
 	}
+	checkAndCreateDirectory(config.Logging.DbErr.RootPath)
 
 	// TODO: Check if app error file can be created, if not exit
 	// Check if PEM files needed for APN exists

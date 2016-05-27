@@ -15,7 +15,7 @@ import (
  * If APN is expired or invalid it sends APN key to a queue which is processed by another goroutine and updated in database
  */
 func apn_processor(identity int, config Configuration, conn *amqp.Connection,
-	ApnStatusInactiveQueueName, ApnQueueName string, ch_err chan []byte, logger *log.Logger,
+	ApnStatusInactiveQueueName, ApnQueueName string, ch_err, ch_apn_log_success chan []byte, logger *log.Logger,
 	killWorker chan int, apnTopic, pemPath string) {
 
 	// Load PEM file specified in config file required to send APN messages
@@ -117,7 +117,40 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 			//						time.Sleep(time.Minute)
 			//					}
 
+			key := token
+			val, ok := retries_apn.Get(key)
+			var valint int
+			if ok {
+				valint, ok = val.(int)
+
+				if ok {
+					valint = valint + 1
+				} else {
+					// Log error (This should not happen) and continue
+					logger.Printf("APN Could not convert interface to int = %v", val)
+					olog(fmt.Sprintf("APN Could not convert interface to int = %v", val), config.DebugMode)
+
+					d.Ack(false)
+					continue
+				}
+			} else {
+				valint = 1
+			}
+
+			// If already tried 5 times, then do not requeue
+			if valint >= config.APN.RequeueCount+1 {
+				// Log it and continue
+				logger.Printf("Max Retries APN send data=%s", notificationByteArray)
+				olog(fmt.Sprintf("Max Retries APN send error. Data = %s", notificationByteArray), config.DebugMode)
+
+				retries_apn.Remove(key)
+				d.Ack(false)
+				continue
+			}
+
+			retries_apn.Set(key, valint)
 			d.Nack(false, true)
+
 			continue
 		} else {
 			// gcmErrCount = 0
@@ -156,7 +189,6 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 								ContentType:  "text/json",
 								Body:         jsonStatusInactiveMsg,
 							})
-
 						// If there is error while publishing message log it
 						if err != nil {
 							logger.Printf("APN status inactive Publish error = %s", err.Error())
@@ -174,7 +206,12 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 					logger.Printf("Marshal error while logging APN response = %s", err.Error())
 					olog(fmt.Sprintf("Marshal error while logging APN response = %s", err.Error()), config.DebugMode)
 				}
-				ch_err <- apnLog
+
+				if isSentToClientSuccesfully == StatusSuccessApnRequest {
+					ch_apn_log_success <- apnLog
+				} else {
+					ch_err <- apnLog
+				}
 			}()
 		}
 		// Acknowledge to MQ that work has been processed successfully
