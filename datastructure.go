@@ -1,6 +1,6 @@
 package main
 import (
-	"github.com/alexjlockwood/gcm"
+	"github.com/therahulprasad/go-fcm"
 )
 
 type GcmError struct {

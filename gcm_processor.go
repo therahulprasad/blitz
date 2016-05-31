@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alexjlockwood/gcm"
+	"github.com/therahulprasad/go-fcm"
 	"github.com/streadway/amqp"
 	"log"
 	"time"
