@@ -196,7 +196,7 @@ func main() {
 		// For all GCM Queues start workers
 		for j:=0; j<config.ApnQueues[i].NumWorkers; j++ {
 			go apn_processor(j, config, conn, config.ApnQueues[i].ApnStatusInactiveQueue,
-				config.ApnQueues[i].Name, ch_apn_log, ch_apn_log_success, logger, killWorker, config.ApnQueues[i].Topic, config.ApnQueues[i].PemPath)
+				config.ApnQueues[i].Name, ch_apn_log, ch_apn_log_success, logger, killWorker, config.ApnQueues[i].Topic, config.ApnQueues[i].PemPath, config.ApnQueues[i].IsHourly)
 		}
 
 		olog(fmt.Sprintf("Startting workers for status_inactive for APN %s", config.GcmQueues[i].Identifier), config.DebugMode)
@@ -275,7 +275,7 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 		// For all GCM Queues start workers
 		for j:=0; j<config.ApnQueues[i].NumWorkers; j++ {
 			go apn_processor(j, config, conn, config.ApnQueues[i].ApnStatusInactiveQueue,
-				config.ApnQueues[i].Name, ch_apn_log, ch_apn_log_success, logger, killWorker, config.ApnQueues[i].Topic, config.ApnQueues[i].PemPath)
+				config.ApnQueues[i].Name, ch_apn_log, ch_apn_log_success, logger, killWorker, config.ApnQueues[i].Topic, config.ApnQueues[i].PemPath, config.ApnQueues[i].IsHourly)
 		}
 
 		olog(fmt.Sprintf("Startting workers for status_inactive for APN %s", config.GcmQueues[i].Identifier), config.DebugMode)

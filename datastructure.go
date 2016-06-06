@@ -115,6 +115,7 @@ type GcmQueue struct {
 				TokenUpdate string `json:"TokenUpdate"`
 				StatusInactive string `json:"StatusInactive"`
 			} `json:"Queries"`
+	IsHourly bool `json:"isHourly"`
 }
 type ApnQueue struct {
 	Identifier string `json:"Identifier"`
@@ -126,6 +127,7 @@ type ApnQueue struct {
 	Queries struct {
 			   StatusInactive string `json:"StatusInactive"`
 		   } `json:"Queries"`
+	IsHourly bool `json:"isHourly"`
 }
 
 

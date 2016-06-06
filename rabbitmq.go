@@ -1,22 +1,47 @@
 package main
 
-import "github.com/streadway/amqp"
+import (
+	"github.com/streadway/amqp"
+	"strconv"
+)
 
 func createQueues(config Configuration, ch *amqp.Channel) {
 	if config.Rabbit.CreateQueues {
 		// Create Queues for GCM from config
 		for i:=0; i < len(config.GcmQueues); i++ {
-			_, err := ch.QueueDeclare(
-				config.GcmQueues[i].Name, // name
-				true,         // durable
-				false,        // delete when unused
-				false,        // exclusive
-				false,        // no-wait
-				nil,          // arguments
-			)
-			failOnError(err, "Failed to declare a queue")
+			if config.GcmQueues[i].IsHourly == true {
+				for j:=0; j<24; j++ {
+					jstr := ""
+					if j < 10 {
+						jstr = "0" + strconv.Itoa(j)
+					} else {
+						jstr = strconv.Itoa(j)
+					}
+					_, err := ch.QueueDeclare(
+						config.GcmQueues[i].Name + "_" + jstr, // name
+						true,         // durable
+						false,        // delete when unused
+						false,        // exclusive
+						false,        // no-wait
+						nil,          // arguments
+					)
+					failOnError(err, "Failed to declare a queue")
+				}
 
-			_, err = ch.QueueDeclare(
+			} else {
+				_, err := ch.QueueDeclare(
+					config.GcmQueues[i].Name, // name
+					true,         // durable
+					false,        // delete when unused
+					false,        // exclusive
+					false,        // no-wait
+					nil,          // arguments
+				)
+				failOnError(err, "Failed to declare a queue")
+			}
+
+
+			_, err := ch.QueueDeclare(
 				config.GcmQueues[i].GcmTokenUpdateQueue, // name
 				true,         // durable
 				false,        // delete when unused
@@ -39,17 +64,38 @@ func createQueues(config Configuration, ch *amqp.Channel) {
 
 		// Create Queues for APN from config
 		for i:=0; i< len(config.ApnQueues); i++ {
-			_, err := ch.QueueDeclare(
-				config.ApnQueues[i].Name, // name
-				true,         // durable
-				false,        // delete when unused
-				false,        // exclusive
-				false,        // no-wait
-				nil,          // arguments
-			)
-			failOnError(err, "Failed to declare a queue")
+			if config.ApnQueues[i].IsHourly == true {
+				for j:=0; j<24; j++ {
+					jstr := ""
+					if j < 10 {
+						jstr = "0" + strconv.Itoa(j)
+					} else {
+						jstr = strconv.Itoa(j)
+					}
+					_, err := ch.QueueDeclare(
+						config.ApnQueues[i].Name + "_" + jstr, // name
+						true,         // durable
+						false,        // delete when unused
+						false,        // exclusive
+						false,        // no-wait
+						nil,          // arguments
+					)
+					failOnError(err, "Failed to declare a queue")
+				}
 
-			_, err = ch.QueueDeclare(
+			} else {
+				_, err := ch.QueueDeclare(
+					config.ApnQueues[i].Name, // name
+					true,         // durable
+					false,        // delete when unused
+					false,        // exclusive
+					false,        // no-wait
+					nil,          // arguments
+				)
+				failOnError(err, "Failed to declare a queue")
+			}
+
+			_, err := ch.QueueDeclare(
 				config.ApnQueues[i].ApnStatusInactiveQueue, // name
 				true,         // durable
 				false,        // delete when unused

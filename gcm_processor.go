@@ -8,12 +8,35 @@ import (
 	"log"
 	"time"
 	"strings"
+	"strconv"
 )
 
+// DONE: Test currect subscription
+// DONE: Test subscription switch switch
+// DONE: Send msg using switched queue
 func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName,
 GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err, ch_gcm_log_success chan []byte, logger *log.Logger,
 killWorker chan int, gcmQueue GcmQueue) {
 	sender := &gcm.Sender{ApiKey: gcmQueue.ApiKey}
+	GcmQueueNameOriginal := GcmQueueName
+	now := time.Now()
+	var hourlyTick <-chan time.Time
+	if gcmQueue.IsHourly == true {
+		curHour := ""
+		curHour  = strconv.Itoa(now.Hour())
+		//tmp := now.Second()%24
+		//if tmp < 10 {
+		//	curHour = "0" + strconv.Itoa(tmp)
+		//} else {
+		//	curHour = strconv.Itoa(tmp)
+		//}
+		GcmQueueName = GcmQueueNameOriginal + "_" + curHour
+		waitTime := 60 - now.Minute()
+		hourlyTick = time.After(time.Duration(waitTime * 61) * time.Second)
+		//fmt.Println(waitTime%24)
+		//hourlyTick = time.After(time.Duration(waitTime%24) * time.Second)
+		olog(fmt.Sprintf("Connecting to " + GcmQueueName), config.DebugMode)
+	}
 
 	// Create new channel for Token update
 	ch, err := conn.Channel()
@@ -38,6 +61,8 @@ killWorker chan int, gcmQueue GcmQueue) {
 	)
 	failOnError(err, "Failed to register a consumer")
 
+	//ch.Cancel(GcmQueueName, false)
+
 	// Get a message
 	// Process it
 	// If processing is complete, then delete it
@@ -45,6 +70,39 @@ killWorker chan int, gcmQueue GcmQueue) {
 	//	gcmErrCount := 0
 	for {
 		select {
+		case <-hourlyTick:
+			olog(fmt.Sprintf("Ticking"), config.DebugMode)
+			curHour := ""
+			now = time.Now()
+			// Cancel current GCMQueue
+			ch.Cancel(GcmQueueName, false)
+
+			// Register to GCMQueue of next hour
+			curHour = strconv.Itoa(now.Hour())
+			//tmp := now.Second()%24
+			//if tmp < 10 {
+			//	curHour = "0" + strconv.Itoa(tmp)
+			//} else {
+			//	curHour = strconv.Itoa(tmp)
+			//}
+			GcmQueueName = GcmQueueNameOriginal + "_" + curHour
+			msgsGcm, err = ch.Consume(
+				GcmQueueName, // queue
+				"", // consumer
+				false, // auto-ack
+				false, // exclusive
+				false, // no-local
+				false, // no-wait
+				nil, // args
+			)
+			failOnError(err, "Failed to register a consumer")
+			olog(fmt.Sprintf("Connected to " + GcmQueueName), config.DebugMode)
+
+			// Set wait time to be 60 mins
+			waitTime := 60 - now.Minute()
+			hourlyTick = time.After(time.Duration(waitTime * 61) * time.Second)
+			//fmt.Println(waitTime%24)
+			//hourlyTick = time.After(time.Duration(waitTime%24) * time.Second)
 		case <-killWorker:
 			olog(fmt.Sprintf("%d Received kill command", identity), config.DebugMode)
 			return

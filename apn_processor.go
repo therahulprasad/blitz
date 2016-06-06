@@ -8,6 +8,7 @@ import (
 	"time"
 	"github.com/sideshow/apns2/certificate"
 	apns "github.com/sideshow/apns2"
+	"strconv"
 )
 
 /**
@@ -16,11 +17,31 @@ import (
  */
 func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 	ApnStatusInactiveQueueName, ApnQueueName string, ch_err, ch_apn_log_success chan []byte, logger *log.Logger,
-	killWorker chan int, apnTopic, pemPath string) {
+	killWorker chan int, apnTopic, pemPath string, isHourly bool) {
 
 	// Load PEM file specified in config file required to send APN messages
 	cert, pemErr := certificate.FromPemFile(pemPath, "")
 	failOnError(pemErr, "Failed to load PEM file for APN")
+
+	ApnQueueNameOriginal := ApnQueueName
+	now := time.Now()
+	var hourlyTick <-chan time.Time
+	if isHourly == true {
+		curHour := ""
+		curHour  = strconv.Itoa(now.Hour())
+		//tmp := now.Second()%24
+		//if tmp < 10 {
+		//	curHour = "0" + strconv.Itoa(tmp)
+		//} else {
+		//	curHour = strconv.Itoa(tmp)
+		//}
+		ApnQueueName = ApnQueueNameOriginal + "_" + curHour
+		waitTime := 60 - now.Minute()
+		hourlyTick = time.After(time.Duration(waitTime * 61) * time.Second)
+		//fmt.Println(waitTime%24)
+		//hourlyTick = time.After(time.Duration(waitTime%24) * time.Second)
+		olog(fmt.Sprintf("Connecting to " + ApnQueueName), config.DebugMode)
+	}
 
 	// Create a new APN Client
 	client := apns.NewClient(cert).Production()
@@ -53,6 +74,27 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 	// If processing is complete, then delete it
 	for {
 		select {
+		case <-hourlyTick:
+			olog(fmt.Sprintf("Ticking"), config.DebugMode)
+			curHour := ""
+			now = time.Now()
+			ch.Cancel(ApnQueueName, false)
+			curHour = strconv.Itoa(now.Hour())
+			ApnQueueName = ApnQueueNameOriginal + "_" + curHour
+			msgsApn, err = ch.Consume(
+				ApnQueueName, // queue
+				"",           // consumer
+				false,        // auto-ack
+				false,        // exclusive
+				false,        // no-local
+				false,        // no-wait
+				nil,          // args
+			)
+			failOnError(err, "Failed to register a consumer")
+			olog(fmt.Sprintf("Connected to " + ApnQueueName), config.DebugMode)
+
+			waitTime := 60 - now.Minute()
+			hourlyTick = time.After(time.Duration(waitTime * 61) * time.Second)
 		case <-killWorker:
 		// If a message is receieved through killWorker then log and exit
 		olog(fmt.Sprintf("%d Received kill command", identity), config.DebugMode)
