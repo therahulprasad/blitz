@@ -29,6 +29,12 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 	if isHourly == true {
 		curHour := ""
 		curHour  = strconv.Itoa(now.Hour())
+		curHourInt := now.Hour()
+		if (curHourInt < 10) {
+			curHour = "0" + strconv.Itoa(curHourInt)
+		} else {
+			curHour = strconv.Itoa(curHourInt)
+		}
 		//tmp := now.Second()%24
 		//if tmp < 10 {
 		//	curHour = "0" + strconv.Itoa(tmp)
@@ -78,6 +84,12 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 			olog(fmt.Sprintf("Ticking"), config.DebugMode)
 			curHour := ""
 			now = time.Now()
+			curHourInt := now.Hour()
+			if (curHourInt < 10) {
+				curHour = "0" + strconv.Itoa(curHourInt)
+			} else {
+				curHour = strconv.Itoa(curHourInt)
+			}
 			ch.Cancel(ApnQueueName, false)
 			curHour = strconv.Itoa(now.Hour())
 			ApnQueueName = ApnQueueNameOriginal + "_" + curHour

@@ -23,7 +23,12 @@ killWorker chan int, gcmQueue GcmQueue) {
 	var hourlyTick <-chan time.Time
 	if gcmQueue.IsHourly == true {
 		curHour := ""
-		curHour  = strconv.Itoa(now.Hour())
+		curHourInt := now.Hour()
+		if (curHourInt < 10) {
+			curHour = "0" + strconv.Itoa(curHourInt)
+		} else {
+			curHour = strconv.Itoa(curHourInt)
+		}
 		//tmp := now.Second()%24
 		//if tmp < 10 {
 		//	curHour = "0" + strconv.Itoa(tmp)
@@ -74,11 +79,17 @@ killWorker chan int, gcmQueue GcmQueue) {
 			olog(fmt.Sprintf("Ticking"), config.DebugMode)
 			curHour := ""
 			now = time.Now()
+			curHourInt := now.Hour()
+			if (curHourInt < 10) {
+				curHour = "0" + strconv.Itoa(curHourInt)
+			} else {
+				curHour = strconv.Itoa(curHourInt)
+			}
 			// Cancel current GCMQueue
 			ch.Cancel(GcmQueueName, false)
 
 			// Register to GCMQueue of next hour
-			curHour = strconv.Itoa(now.Hour())
+			//curHour = strconv.Itoa(now.Hour())
 			//tmp := now.Second()%24
 			//if tmp < 10 {
 			//	curHour = "0" + strconv.Itoa(tmp)
