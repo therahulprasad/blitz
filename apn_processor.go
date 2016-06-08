@@ -17,8 +17,10 @@ import (
  */
 func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 	ApnStatusInactiveQueueName, ApnQueueName string, ch_err, ch_apn_log_success chan []byte, logger *log.Logger,
-	killWorker chan int, apnTopic, pemPath string, isHourly bool) {
-
+	killWorker chan int, apnQueue ApnQueue) {
+	isHourly := apnQueue.IsHourly
+	pemPath := apnQueue.PemPath
+	apnTopic := apnQueue.Topic
 	// Load PEM file specified in config file required to send APN messages
 	cert, pemErr := certificate.FromPemFile(pemPath, "")
 	failOnError(pemErr, "Failed to load PEM file for APN")
@@ -146,6 +148,16 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 		notification.DeviceToken = token
 		notification.Topic = apnTopic
 		notification.Payload, err = json.Marshal(data)
+
+		// If config contains time to love for message then add it
+		if apnQueue.TtlSeconds > 0 {
+			notification.Expiration = time.Now().Add(time.Duration(apnQueue.TtlSeconds) * time.Second)
+		}
+
+		// If json data contains ttl value then override it
+		if payload.TimeToLiveSeconds > 0 {
+			notification.Expiration = time.Now().Add(time.Duration(payload.TimeToLiveSeconds) * time.Second)
+		}
 
 		// Could not encode map to json.
 		if err != nil {

@@ -136,6 +136,18 @@ killWorker chan int, gcmQueue GcmQueue) {
 				regIDs := payload.Token
 
 				msg := gcm.NewMessage(data, regIDs...)
+
+				// If config contains time to love for message then add it
+				if gcmQueue.TtlSeconds > 0 {
+					msg.TimeToLive = gcmQueue.TtlSeconds
+				}
+
+
+				// If json data contains time to live then override it
+				if payload.TimeToLiveSeconds > 0 {
+					msg.TimeToLive = payload.TimeToLiveSeconds
+				}
+
 				response, err := sender.Send(msg, 2)
 				if err != nil {
 					// gcmErrCount++

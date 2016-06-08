@@ -98,10 +98,12 @@ type Configuration struct {
 type Message struct {
 	Token []string `json:"Token"`
 	Body map[string]interface{} `json:"Body"`
+	TimeToLiveSeconds int `json:"timeToLiveSeconds"`
 }
 type ApnMessage struct {
 	Token string `json:"Token"`
 	Body map[string]interface{} `json:"Body"`
+	TimeToLiveSeconds int `json:"timeToLiveSeconds"`
 }
 
 type GcmQueue struct {
@@ -116,6 +118,7 @@ type GcmQueue struct {
 				StatusInactive string `json:"StatusInactive"`
 			} `json:"Queries"`
 	IsHourly bool `json:"isHourly"`
+	TtlSeconds int `json:"timeToLiveSeconds"`
 }
 type ApnQueue struct {
 	Identifier string `json:"Identifier"`
@@ -128,6 +131,7 @@ type ApnQueue struct {
 			   StatusInactive string `json:"StatusInactive"`
 		   } `json:"Queries"`
 	IsHourly bool `json:"isHourly"`
+	TtlSeconds int `json:"timeToLiveSeconds"`
 }
 
 
