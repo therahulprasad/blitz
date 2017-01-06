@@ -93,7 +93,6 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 				curHour = strconv.Itoa(curHourInt)
 			}
 			ch.Cancel(ApnQueueName, false)
-			curHour = strconv.Itoa(now.Hour())
 			ApnQueueName = ApnQueueNameOriginal + "_" + curHour
 			msgsApn, err = ch.Consume(
 				ApnQueueName, // queue
