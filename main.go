@@ -38,18 +38,18 @@ package main
 **/
 
 import (
+	"flag"
 	"fmt"
+	"github.com/go-gomail/gomail"
 	"github.com/streadway/amqp"
+	"github.com/streamrail/concurrent-map"
 	"log"
 	"os"
-	"strconv"
-	"time"
-	"os/signal"
-	"syscall"
-	"github.com/streamrail/concurrent-map"
-	"flag"
 	"os/exec"
-	"github.com/go-gomail/gomail"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 )
 
 const VERSION = "0.6"
@@ -68,7 +68,7 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func submitMail(m *gomail.Message, config Configuration) (error) {
+func submitMail(m *gomail.Message, config Configuration) error {
 	if config.SendMailPath != "" {
 		cmd := exec.Command(config.SendMailPath, "-t")
 		cmd.Stdout = os.Stdout
@@ -101,7 +101,7 @@ func submitMail(m *gomail.Message, config Configuration) (error) {
 /**
 * initConn() Recursively tries to create connection with RabbitMQ server.
 * @param config Hello
-*/
+ */
 func initConn(config Configuration) *amqp.Connection {
 	olog("Connecting", config.DebugMode)
 
@@ -125,7 +125,7 @@ var retries_gcm cmap.ConcurrentMap
 var retries_apn cmap.ConcurrentMap
 
 func sendErrorMail(msg string, err error, config Configuration) {
-	errorMessage := config.EmailFailure.Message + "<br>Message: " + msg + "<br> Error: " +  err.Error()
+	errorMessage := config.EmailFailure.Message + "<br>Message: " + msg + "<br> Error: " + err.Error()
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", config.EmailFailure.From)
@@ -135,7 +135,7 @@ func sendErrorMail(msg string, err error, config Configuration) {
 
 	err = submitMail(m, config)
 
-	if(err!=nil) {
+	if err != nil {
 		log.Fatalf("sendErrorMail %s: %s", msg, err)
 		panic(fmt.Sprintf("sendErrorMail %s: %s", msg, err))
 	}
@@ -144,7 +144,7 @@ func sendErrorMail(msg string, err error, config Configuration) {
 func main() {
 	// CLI arguments
 	version := flag.Bool("version", false, "Prints current version and exits")
-	debugModePtr := flag.Bool("debugmode", false, "true/false")
+	debugModePtr := flag.Bool("debug", false, "Force debug mode")
 	flag.Parse()
 	if *version == true {
 		fmt.Println("Version: " + VERSION)
@@ -152,7 +152,7 @@ func main() {
 	}
 
 	// Load configuration
-	config 	:= loadConfig(*debugModePtr)
+	config := loadConfig(*debugModePtr)
 
 	// Check if basis requirements are fulfilled
 	checkSystem(config)
@@ -161,11 +161,11 @@ func main() {
 	killWorker := make(chan int)
 
 	// Open file for loffing file error
-	ae, err := os.OpenFile(config.Logging.AppErr.FilePath, os.O_CREATE | os.O_APPEND | os.O_WRONLY, 0666)
+	ae, err := os.OpenFile(config.Logging.AppErr.FilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	failOnError(err, "Unable to open App Error Log file")
 
 	// Create a logger with opened file to log application errors
-	logger := log.New(ae, "", log.LstdFlags | log.Lshortfile)
+	logger := log.New(ae, "", log.LstdFlags|log.Lshortfile)
 	logger.Printf("Starting Service...")
 
 	retries_gcm = cmap.New()
@@ -173,9 +173,9 @@ func main() {
 
 	// TODO: Get number of worker buffer from config file
 	// Create buffered channel for writing GCM log
-	ch_gcm_log := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
+	ch_gcm_log := make(chan []byte, 100)         // Create a buffered channel so that processor won't block witing for other to write into error log
 	ch_gcm_log_success := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
-	ch_apn_log := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
+	ch_apn_log := make(chan []byte, 100)         // Create a buffered channel so that processor won't block witing for other to write into error log
 	ch_apn_log_success := make(chan []byte, 100) // Create a buffered channel so that processor won't block witing for other to write into error log
 
 	// Create buffered channel for writing db log
@@ -238,14 +238,13 @@ func main() {
 		os.Exit(1)
 	}(chQuit, config, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck, killApnStatusInactive, killApnStatusInactiveAck)
 
-
 	olog(fmt.Sprintf("Spinning up workers"), config.DebugMode)
 	// For all GcmQueues start new goroutines
-	for i:=0; i < len(config.GcmQueues); i++ {
+	for i := 0; i < len(config.GcmQueues); i++ {
 		// For all GCM Queues start workers
-		for j:=0; j<config.GcmQueues[i].Numworkers; j++ {
+		for j := 0; j < config.GcmQueues[i].Numworkers; j++ {
 			go gcm_processor(j, config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, config.GcmQueues[i].GcmStatusInactiveQueue,
-								config.GcmQueues[i].Name, ch_gcm_log, ch_gcm_log_success, logger, killWorker, config.GcmQueues[i])
+				config.GcmQueues[i].Name, ch_gcm_log, ch_gcm_log_success, logger, killWorker, config.GcmQueues[i])
 		}
 
 		olog(fmt.Sprintf("Startting workers for tokenUpdate and status_inactive for GCM %s", config.GcmQueues[i].Identifier), config.DebugMode)
@@ -254,9 +253,9 @@ func main() {
 	}
 
 	//For all APN Queues start workers
-	for i:=0; i < len(config.ApnQueues); i++ {
+	for i := 0; i < len(config.ApnQueues); i++ {
 		// For all GCM Queues start workers
-		for j:=0; j<config.ApnQueues[i].NumWorkers; j++ {
+		for j := 0; j < config.ApnQueues[i].NumWorkers; j++ {
 			go apn_processor(j, config, conn, config.ApnQueues[i].ApnStatusInactiveQueue,
 				config.ApnQueues[i].Name, ch_apn_log, ch_apn_log_success, logger, killWorker, config.ApnQueues[i])
 		}
@@ -276,31 +275,30 @@ func main() {
 	<-forever
 }
 
-
 /**
  * It sends kill signal through kill channel to all go routines
  */
 func killAllWorkers(config Configuration, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck, killApnStatusInactive, killApnStatusInactiveAck chan int) {
 	// Kill All GCM workers
-	for i:=0; i < len(config.GcmQueues); i++ {
+	for i := 0; i < len(config.GcmQueues); i++ {
 		for j := 0; j < config.GcmQueues[i].Numworkers; j++ {
-			killWorker<- 1
+			killWorker <- 1
 		}
 		// Kill status inactive token processor worker for GCM
-		killStatusInactive<- NeedAck
+		killStatusInactive <- NeedAck
 
 		// Kill update token processor worker for GCM
-		killTokenUpd<- NeedAck
+		killTokenUpd <- NeedAck
 	}
 
 	// Kill All APN workers
-	for i:=0; i < len(config.ApnQueues); i++ {
+	for i := 0; i < len(config.ApnQueues); i++ {
 		for j := 0; j < config.ApnQueues[i].NumWorkers; j++ {
-			killWorker<- 1
+			killWorker <- 1
 		}
 
 		// Kill status inactive token processor worker for GCM
-		killApnStatusInactive<- NeedAck
+		killApnStatusInactive <- NeedAck
 	}
 
 	// Wait for database goroutines to end
@@ -314,7 +312,7 @@ func killAllWorkers(config Configuration, killWorker, killStatusInactive, killTo
 
 // Function to restart everything
 func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection, ch_gcm_log, ch_db_log, ch_apn_log, ch_gcm_log_success, ch_apn_log_success chan []byte, logger *log.Logger,
-			killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck, killApnStatusInactive, killApnStatusInactiveAck chan int) {
+	killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck, killApnStatusInactive, killApnStatusInactiveAck chan int) {
 	// Kill all Worker
 	killAllWorkers(config, killWorker, killStatusInactive, killTokenUpd, killStatusInactiveAck, killTokenUpdAck, killApnStatusInactive, killApnStatusInactiveAck)
 
@@ -324,8 +322,8 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 
 	olog(fmt.Sprintf("Spinning up workers"), config.DebugMode)
 	// For all GcmQueues start new goroutines
-	for i:=0; i < len(config.GcmQueues); i++ {
-		for j:=0; j<config.GcmQueues[i].Numworkers; j++ {
+	for i := 0; i < len(config.GcmQueues); i++ {
+		for j := 0; j < config.GcmQueues[i].Numworkers; j++ {
 			go gcm_processor(j, config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, config.GcmQueues[i].GcmStatusInactiveQueue,
 				config.GcmQueues[i].Name, ch_gcm_log, ch_gcm_log_success, logger, killWorker, config.GcmQueues[i])
 		}
@@ -333,9 +331,9 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 		go gcm_error_processor_token_update(config, conn, config.GcmQueues[i].GcmTokenUpdateQueue, ch_db_log, logger, killTokenUpd, killTokenUpdAck, config.GcmQueues[i])
 	}
 	//For all APN Queues start workers
-	for i:=0; i < len(config.ApnQueues); i++ {
+	for i := 0; i < len(config.ApnQueues); i++ {
 		// For all GCM Queues start workers
-		for j:=0; j<config.ApnQueues[i].NumWorkers; j++ {
+		for j := 0; j < config.ApnQueues[i].NumWorkers; j++ {
 			go apn_processor(j, config, conn, config.ApnQueues[i].ApnStatusInactiveQueue,
 				config.ApnQueues[i].Name, ch_apn_log, ch_apn_log_success, logger, killWorker, config.ApnQueues[i])
 		}
@@ -344,9 +342,7 @@ func restart(reset chan *amqp.Error, config Configuration, conn *amqp.Connection
 		go apn_error_processor_status_inactive(config, conn, config.ApnQueues[i].ApnStatusInactiveQueue, ch_db_log, logger, killApnStatusInactive, killApnStatusInactiveAck, config.ApnQueues[i])
 	}
 
-
 	olog("Starting error processors", config.DebugMode)
-
 
 	reset = conn.NotifyClose(make(chan *amqp.Error))
 	for range reset {

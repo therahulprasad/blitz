@@ -14,7 +14,8 @@ func loadConfig(forceDebugMode bool) Configuration {
 	decoder := json.NewDecoder(file)
 	config  := Configuration{}
 	err 	:= decoder.Decode(&config)
-	failOnError(err, "Failed to load config file")
+	log.Fatalf("loadConfigError: %s", err)
+	panic(fmt.Sprintf("loadConfigError: %s", err))
 
 	if config.Rabbit.ReconnectWaitTimeSec < 1 {
 		config.Rabbit.ReconnectWaitTimeSec = 1
