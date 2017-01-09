@@ -9,13 +9,13 @@ package main
 	DONE: Peaceful quit, wait for all worker to finish before quitting
 	DONE: What happens if RabbitMQ restarts ? >> Logic for reconnect
 	DONE: On continuous 10 GCM error, everyworker should hold for 1 minute before trying again
-	TODO: Multiple trial before discarding and check before requeing
+	DONE: Multiple trial before discarding and check before re-queue
 	TODO: % encode vhost name
-	TODO: To create Queues or not should be configurable as user might not have permission to create queue
+	DONE: To create Queues or not should be configurable as user might not have permission to create queue
 	TODO: Write test cases
 	TODO: Setup travis
 	DONE: Add timestamp to logs
-	TODO: handle log separetly, Dont process it one by one
+	TODO: handle log separately, Don't process it one by one
 	DONE: Add worker information to logs
 	TODO: App error should be kept in proper way
 	DONE: Do not start this app, if its already running (pgrep blitz) Done using listening to port
@@ -47,7 +47,12 @@ import (
 	"os/signal"
 	"syscall"
 	"github.com/streamrail/concurrent-map"
+	"flag"
+	"os/exec"
+	"github.com/go-gomail/gomail"
 )
+
+const VERSION = "0.6"
 
 /**
  * In case of error it displays error and exits
@@ -56,14 +61,45 @@ import (
  */
 func failOnError(err error, msg string) {
 	if err != nil {
+		config := loadConfig(false)
+		sendErrorMail(msg, err, config)
 		log.Fatalf("FailOnError %s: %s", msg, err)
 		panic(fmt.Sprintf("%s: %s", msg, err))
 	}
 }
 
+func submitMail(m *gomail.Message, config Configuration) (error) {
+	if config.SendMailPath != "" {
+		cmd := exec.Command(config.SendMailPath, "-t")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		pw, err := cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+
+		err = cmd.Start()
+		if err != nil {
+			return err
+		}
+
+		var errs [3]error
+		_, errs[0] = m.WriteTo(pw)
+		errs[1] = pw.Close()
+		errs[2] = cmd.Wait()
+		for _, err = range errs {
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	}
+	return nil
+}
 
 /**
-* initConn() Recursivly tries to create connection with RabbitMQ server.
+* initConn() Recursively tries to create connection with RabbitMQ server.
 * @param config Hello
 */
 func initConn(config Configuration) *amqp.Connection {
@@ -88,11 +124,37 @@ func initConn(config Configuration) *amqp.Connection {
 var retries_gcm cmap.ConcurrentMap
 var retries_apn cmap.ConcurrentMap
 
-func main() {
-	// Load configuration
-	config 	:= loadConfig()
+func sendErrorMail(msg string, err error, config Configuration) {
+	errorMessage := config.EmailFailure.Message + "<br>Message: " + msg + "<br> Error: " +  err.Error()
 
-	// Check if basis requirements are fullfilled
+	m := gomail.NewMessage()
+	m.SetHeader("From", config.EmailFailure.From)
+	m.SetHeader("To", config.EmailFailure.To)
+	m.SetHeader("Subject", config.EmailFailure.Subject)
+	m.SetBody("text/html", errorMessage)
+
+	err = submitMail(m, config)
+
+	if(err!=nil) {
+		log.Fatalf("sendErrorMail %s: %s", msg, err)
+		panic(fmt.Sprintf("sendErrorMail %s: %s", msg, err))
+	}
+}
+
+func main() {
+	// CLI arguments
+	version := flag.Bool("version", false, "Prints current version and exits")
+	debugModePtr := flag.Bool("debugmode", false, "true/false")
+	flag.Parse()
+	if *version == true {
+		fmt.Println("Version: " + VERSION)
+		os.Exit(0)
+	}
+
+	// Load configuration
+	config 	:= loadConfig(*debugModePtr)
+
+	// Check if basis requirements are fulfilled
 	checkSystem(config)
 
 	// A channel which is used to kill all workers

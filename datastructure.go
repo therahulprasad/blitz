@@ -41,6 +41,7 @@ type ApnStatusInactiveMsg struct {
 type Configuration struct {
 	DebugMode bool `json:"DebugMode"`
 	SingularityPort string `json:"SingularityPort"`
+	SendMailPath string `json:"SendMailPath"`
 	Rabbit struct {
 				   Username string `json:"Username"`
 				   Password string `json:"Password"`
@@ -93,6 +94,12 @@ type Configuration struct {
 						  StatusInactive int `json:"StatusInactive"`
 					  } `json:"WaitTimeMs"`
 	   } `json:"Db"`
+	EmailFailure struct {
+		     From string `json:"From"`
+		     To string `json:"To"`
+		     Subject string `json:"Subject"`
+		     Message string `json:"Message"`
+	     } `json:"EmailFailure"`
 }
 
 type Message struct {

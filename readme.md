@@ -1,16 +1,10 @@
-# blitz #
-__v0.2.2__
-GCM and APN logging bug fixed. If push fails, data was missing from logs. 
-
-__v0.2.1__
-APN logging bug fixed
-
-__v0.2__
+# blitz `0.6` # 
 This program can run a set of workers to send GCM (Android Notification) / APN (iOS notification) messages concurrently. It reads messages from RabbitMQ and process it.  
 
 Blitz uses go's concurrency model to dispatch GCM and APN messages with high throughput.
 It uses rabbitMq as message queue to fetch notification data to be sent.
 Message should be a json of following format.  
+
      {
          "Token": "xxxxxx",
          "Body" : {
@@ -20,15 +14,47 @@ Message should be a json of following format.
 
 
 ## Dependencies ##
-1. Rabbit MQ
-1. MySql (optional) for updating status of GCM/apn token
+1. Rabbit MQ  
+`sudo docker pull rabbitmq`  
+`sudo docker run -d --hostname my-rabbit --name some-rabbit rabbitmq:3-management`  
+1. MySql (optional) for updating status of GCM/APN token
 
 ## How to use ##
 1. Rename config.sample.json to config.json and update required fields
 2. Run executable
 3. That's it
 
+## Run as service in Linux ##
+Use following script to run blitz as service. Put this as `blitz.conf` file within
+`/etc/init/`. Replace `/path/to/blitz-folder`
+
+
+    description "Service for a sending gcm and apn notifications quequed in RabbitMQ"
+    author    "Rahul Prasad"
+    
+    start on filesystem or runlevel [2345]
+    stop on shutdown
+    
+    console log
+    
+    script
+            cd /path/to/blitz-folder/
+            echo $$ > blitz.pid
+            exec sudo -u ubuntu -- ./blitz
+    end script
+    
+    pre-start script
+            echo "[`date`] Blitz Starting" >> /path/to/blitz-folder/blitz.log
+    end script
+    
+    pre-stop script
+            rm /path/to/blitz-folder/blitz.pid
+            echo "[`date`] Blitz Stopping" >> /path/to/blitz-folder/blitz.log
+    end script
+
 ## Configuration ##
+Check config.sample.json
+
     {
       // Number of workers to run at a time, -ve value means 1
       "NumWorkers": -1, 
@@ -127,10 +153,21 @@ Message should be a json of following format.
 1. Sometimes APN/2 library gets stucks while sending notification. Quiting at that time waits for library to complete transaction, which sometimes takes too long. Try to kill it instead.
  
 ## Change Log ##
-0.2
----
-Implemeted support for APN/2
 
-0.1
----
+#### 0.6
+1. APN Connect failure due to wrong queue name fixed
+2. config.sample.json updated
+3. CLI argument implemented: -version to print version
+4. Readme updated, Added "How to run as service in ubuntu"
+5. Send mail in case of failOnError
+6. Update config and data structure to include mailing details
+
+#### 0.2
+Implemeted support for APN/2  
+_0.2.2:_ 
+GCM and APN logging bug fixed. If push fails, data was missing from logs.  
+_0.2.1:_ 
+APN logging bug fixed
+
+#### 0.1
 Implemented support for GCM
