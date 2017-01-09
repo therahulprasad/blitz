@@ -1,42 +1,130 @@
 {
-  "NumWorkers": 10,
+  "##DebugMode##" : "Boolean",
   "DebugMode" : true,
+  "##SingularityPort##": "Integer - This port will be occupied to make sure only one instance is running",
+  "SingularityPort": "49342",
+  "##Rabbit##"    : "Object - RabbitMQ specific configurations",
+  "##SendMailPath##": "String - Path to sendmail executable to be used to send mail in case of error - generally it is /usr/sbin/sendmail",
+  "SendMailPath": "/usr/sbin/sendmail",
   "Rabbit"    : {
     "Username": "guest",
     "Password": "guest",
     "Host"    : "localhost",
     "Port"    : 5672,
-    "Vhost"   : "",
-    "GcmMsgQueue": "gcm_messages",
-    "GcmTokenUpdateQueue" : "gcm_token_update",
-    "GcmStatusInactiveQueue" : "gcm_status_inactive",
-    "CreateQueues": true
+    "##Vhost##"   : "String - Should be kept / if not sure",
+    "Vhost"   : "/",
+    "##ReconnectWaitTimeSec##" : "Integer - Try to reconnect in case of failure after {x} seconds",
+    "ReconnectWaitTimeSec" : 5,
+    "##CreateQueues##" : "Boolean - try to create queue if not present",
+    "CreateQueues" : true
   },
+  "GcmQueues": [
+    {
+      "identifier": "primary",
+      "Name": "gcm_messages",
+      "NumWorkers": 50,
+      "ApiKey": "XXX",
+      "GcmTokenUpdateQueue" : "gcm_token_update",
+      "GcmStatusInactiveQueue" : "gcm_status_inactive",
+      "Queries": {
+        "TokenUpdate":"UPDATE user_gcm SET gcm_id = ?, gcm_status = 1 WHERE gcm_id = ?",
+        "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
+      },
+      "isHourly": true,
+      "##timeToLiveSeconds##": "expiration time in seconds for any message present in this queue, corresponding value present in particular message overrides this",
+      "timeToLiveSeconds": 2419200
+    },
+    {
+      "identifier": "priority",
+      "Name": "gcm_messages_priority",
+      "NumWorkers": 5,
+      "ApiKey": "XXX",
+      "GcmTokenUpdateQueue" : "gcm_token_update_priority",
+      "GcmStatusInactiveQueue" : "gcm_status_inactive_priority",
+      "Queries": {
+        "TokenUpdate":"UPDATE user_gcm SET gcm_id = ?, gcm_status = 1 WHERE gcm_id = ?",
+        "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
+      },
+      "##timeToLiveSeconds##": "expiration time in seconds for any message present in this queue, corresponding value present in particular message overrides this",
+      "timeToLiveSeconds": 2419200
+    },
+    {
+      "identifier": "sdk",
+      "Name": "gcm_messages_sdk",
+      "NumWorkers": 10,
+      "ApiKey": "XXX",
+      "GcmTokenUpdateQueue" : "gcm_token_update_sdk",
+      "GcmStatusInactiveQueue" : "gcm_status_inactive_sdk",
+      "Queries": {
+        "TokenUpdate":"UPDATE user_gcm SET gcm_id = ?, gcm_status = 1 WHERE gcm_id = ?",
+        "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
+      },
+      "##timeToLiveSeconds##": "expiration time in seconds for any message present in this queue, corresponding value present in particular message overrides this",
+      "timeToLiveSeconds": 2419200
+    }
+  ],
+  "ApnQueues": [
+    {
+      "Identifier": "primary",
+      "Name": "apn_messages",
+      "NumWorkers": 50,
+      "PemPath": "/path/to/ios_certificate.pem",
+      "ApnStatusInactiveQueue": "apn_status_inactive",
+      "Topic": "com.website.application",
+      "Queries": {
+        "StatusInactive":"UPDATE user_apn SET apn_status = '-1' WHERE apn_key LIKE ?"
+      },
+      "isHourly": true,
+      "##timeToLiveSeconds##": "expiration time in seconds for any message present in this queue, corresponding value present in particular message overrides this",
+      "timeToLiveSeconds": 2419200
+    }
+  ],
   "GCM"       : {
-    "ApiKey"  : "xxxxxxxx"
+    "ApiKey"  : "XXX",
+    "RequeueCount" : 5
+  },
+  "APN"       : {
+    "RequeueCount" : 5
   },
   "Logging"   : {
     "GcmErr"   : {
-      "RootPath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/log",
+      "SuccessPath": "/path/to/blitz/folder/gcm_logs/success",
+      "RootPath" : "/path/to/blitz/folder/gcm_logs/errors",
+      "LogSuccess": true
+    },
+    "ApnErr"   : {
+      "SuccessPath": "/path/to/blitz/folder/apn_logs/success",
+      "RootPath" : "/path/to/blitz/folder/apn_logs/errors",
+      "LogSuccess": true
+    },
+    "DbErr"   : {
+      "RootPath" : "/path/to/blitz/folder/db/logs",
       "LogSuccess": true
     },
     "AppErr"  : {
-      "FilePath" : "/Users/rahulprasad/Documents/go/src/github.com/touchtalent/GoWorkerGCM/app-err.log"
-    },
-    "Db" : {
-      "DbHost" : "127.0.0.1",
-      "DbPort" : 3306,
-      "DbUser" : "root",
-      "DbPassword" : "root",
-      "DbDatabase" : "bobble_local",
-      "TransactionMinCount" : {
-        "TokenUpdate" : 2,
-        "StatusInactive" : 2
-      },
-      "Queries": {
-        "TokenUpdate":"UPDATE user_gcm SET gcm_id = ? WHERE gcm_id = ?",
-        "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
-      }
+      "FilePath" : "/path/to/blitz/folder/err.log"
     }
+  },
+  "Db" : {
+    "DbHost" : "localhost",
+    "DbPort" : 3306,
+    "DbUser" : "root",
+    "DbPassword" : "root",
+    "DbDatabase" : "dbname",
+    "TransactionMinCount" : {
+      "TokenUpdate" : 100,
+      "StatusInactive" : 100
+    },
+    "Queries": {
+      "TokenUpdate":"UPDATE user_gcm SET gcm_id = ?, gcm_status = 1 WHERE gcm_id = ?",
+      "StatusInactive":"UPDATE user_gcm SET gcm_status = -1 WHERE gcm_id = ?"
+    }
+  },
+  "##EmailFailure##": "Object - Email configuration used to send mail using /usr/sbin/sendmail on Failure",
+  "EmailFailure": {
+    "From": "blitz@domain.me",
+    "To": "backend@domain.me",
+    "Subject": "Blitz Fatal Error",
+    "Message": "Hello Earthlings, <br>Blitz is exiting due to following error. <br>"
   }
 }

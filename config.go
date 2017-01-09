@@ -3,26 +3,25 @@ package main
 import (
 	"os"
 	"encoding/json"
-	"flag"
 	"net"
 	"fmt"
 	"log"
 )
 
 // load json configuration file into memory
-func loadConfig() Configuration {
+func loadConfig(forceDebugMode bool) Configuration {
 	file, _ := os.Open("config.json")
 	decoder := json.NewDecoder(file)
 	config  := Configuration{}
 	err 	:= decoder.Decode(&config)
-	failOnError(err, "Failed to load config file")
+	log.Fatalf("loadConfigError: %s", err)
+	panic(fmt.Sprintf("loadConfigError: %s", err))
 
 	if config.Rabbit.ReconnectWaitTimeSec < 1 {
 		config.Rabbit.ReconnectWaitTimeSec = 1
 	}
 
-	debugModePtr := flag.Bool("debugmode", false, "true/false")
-	if *debugModePtr {
+	if forceDebugMode {
 		config.DebugMode = true
 	}
 
@@ -37,6 +36,14 @@ func checkAndCreateDirectory(dirpath string) {
 	}
 }
 func checkSystem(config Configuration) {
+	// Check if sendmail exists
+	if(config.SendMailPath != "") {
+		if _, err := os.Stat(config.SendMailPath); os.IsNotExist(err) {
+			log.Fatalf("Incorrect sendmail path in config: %s", err)
+			panic(fmt.Sprintf("Incorrect sendmail path in config: %s", err))
+		}
+	}
+
 	port := config.SingularityPort
 	ln, err := net.Listen("tcp", ":" + port)
 	if err != nil {
