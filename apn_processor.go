@@ -93,6 +93,11 @@ func apn_processor(identity int, config Configuration, conn *amqp.Connection,
 				curHour = strconv.Itoa(curHourInt)
 			}
 			ch.Cancel(ApnQueueName, false)
+
+			ch.Close()
+			ch, err = conn.Channel()
+			failOnError(err, "Failed to reconnect to a channel")
+
 			ApnQueueName = ApnQueueNameOriginal + "_" + curHour
 			msgsApn, err = ch.Consume(
 				ApnQueueName, // queue

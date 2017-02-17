@@ -88,6 +88,10 @@ killWorker chan int, gcmQueue GcmQueue) {
 			// Cancel current GCMQueue
 			ch.Cancel(GcmQueueName, false)
 
+			ch.Close()
+			ch, err = conn.Channel()
+			failOnError(err, "Failed to reconnect to a channel")
+
 			// Register to GCMQueue of next hour
 			//curHour = strconv.Itoa(now.Hour())
 			//tmp := now.Second()%24

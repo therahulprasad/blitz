@@ -1,4 +1,4 @@
-# blitz `0.6` # 
+# blitz `0.7` # 
 This program can run a set of workers to send GCM (Android Notification) / APN (iOS notification) messages concurrently. It reads messages from RabbitMQ and process it.  
 
 Blitz uses go's concurrency model to dispatch GCM and APN messages with high throughput.
@@ -153,6 +153,10 @@ Check config.sample.json
 1. Sometimes APN/2 library gets stucks while sending notification. Quiting at that time waits for library to complete transaction, which sometimes takes too long. Try to kill it instead.
  
 ## Change Log ##
+
+#### 0.7
+RabbitMQ unacked Bug fixed
+Added database connection check in SystemCheck call 
 
 #### 0.6
 1. APN Connect failure due to wrong queue name fixed

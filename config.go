@@ -6,6 +6,8 @@ import (
 	"net"
 	"fmt"
 	"log"
+	"github.com/ziutek/mymysql/mysql"
+	"strconv"
 )
 
 // load json configuration file into memory
@@ -54,6 +56,14 @@ func checkSystem(config Configuration) {
 	}
 	go ln.Accept()
 
+	// Check if MySql can be connected
+	db := mysql.New("tcp", "", config.Db.DbHost+":"+strconv.Itoa(config.Db.DbPort), config.Db.DbUser, config.Db.DbPassword, config.Db.DbDatabase)
+	olog(fmt.Sprintf("Trying to connect to database"), config.DebugMode)
+	err = db.Connect()
+	if err != nil {
+		// Exit if database can not be connected
+		failOnError(err, "Could not conect to database: " + err.Error())
+	}
 
 	// Check if log directory exists, if not create it, In case of error fail
 	checkAndCreateDirectory(config.Logging.GcmErr.RootPath)

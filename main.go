@@ -52,7 +52,7 @@ import (
 	"time"
 )
 
-const VERSION = "0.6"
+const VERSION = "0.7"
 
 /**
  * In case of error it displays error and exits
