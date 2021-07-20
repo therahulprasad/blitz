@@ -102,9 +102,10 @@ type Configuration struct {
 	     } `json:"EmailFailure"`
 }
 
-type Message struct {
+type GcmMessage struct {
 	Token []string `json:"Token"`
 	Body map[string]interface{} `json:"Body"`
+	GcmApiKey string `json:"GcmApiKey"`
 	TimeToLiveSeconds int `json:"timeToLiveSeconds"`
 }
 type ApnMessage struct {

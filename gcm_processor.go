@@ -17,7 +17,6 @@ import (
 func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName,
 GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err, ch_gcm_log_success chan []byte, logger *log.Logger,
 killWorker chan int, gcmQueue GcmQueue) {
-	sender := &gcm.Sender{ApiKey: gcmQueue.ApiKey}
 	GcmQueueNameOriginal := GcmQueueName
 	now := time.Now()
 	var hourlyTick <-chan time.Time
@@ -130,7 +129,7 @@ killWorker chan int, gcmQueue GcmQueue) {
 			olog(fmt.Sprintf("%d Worker Received a message: %s", identity, d.Body), config.DebugMode)
 
 		// GCM work
-			payload := Message{}
+			payload := GcmMessage{}
 			err := json.Unmarshal(d.Body, &payload)
 			if err != nil {
 				logger.Printf("Unmarshal error = %s, for MQ message data = %s", err.Error(), d.Body)
@@ -151,7 +150,11 @@ killWorker chan int, gcmQueue GcmQueue) {
 				if payload.TimeToLiveSeconds > 0 {
 					msg.TimeToLive = payload.TimeToLiveSeconds
 				}
-
+				apikey := payload.GcmApiKey
+				if (apikey == nil || len(apikey) == 0) {
+					apikey = gcmQueue.ApiKey
+				}
+				sender := &gcm.Sender{ApiKey: apikey}
 				response, err := sender.Send(msg, 2)
 				if err != nil {
 					// gcmErrCount++
