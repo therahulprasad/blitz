@@ -150,11 +150,11 @@ killWorker chan int, gcmQueue GcmQueue) {
 				if payload.TimeToLiveSeconds > 0 {
 					msg.TimeToLive = payload.TimeToLiveSeconds
 				}
-				apikey := payload.GcmApiKey
-				if (apikey == nil || len(apikey) == 0) {
-					apikey = gcmQueue.ApiKey
+				apiKey := payload.GcmApiKey
+				if (len(apiKey) == 0) {
+					apiKey = gcmQueue.ApiKey
 				}
-				sender := &gcm.Sender{ApiKey: apikey}
+				sender := &gcm.Sender{ApiKey: apiKey}
 				response, err := sender.Send(msg, 2)
 				if err != nil {
 					// gcmErrCount++
