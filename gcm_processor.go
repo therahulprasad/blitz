@@ -150,6 +150,11 @@ killWorker chan int, gcmQueue GcmQueue) {
 				if payload.TimeToLiveSeconds > 0 {
 					msg.TimeToLive = payload.TimeToLiveSeconds
 				}
+
+				var notificationIdentifier string
+				if rawNotificationIdentifier, found := data["notificationIdentifier"]; found {
+					notificationIdentifier, _ = rawNotificationIdentifier.(string)
+				}
 				apiKey := payload.GcmApiKey
 				if (len(apiKey) == 0) {
 					apiKey = gcmQueue.ApiKey
@@ -281,7 +286,7 @@ killWorker chan int, gcmQueue GcmQueue) {
 								isSentToClientSuccesfully = StatusSuccessGcmRequest
 							}
 
-							gcmLog, err := json.Marshal(GcmLog{TimeStamp: ts, Type: isSentToClientSuccesfully, GcmId: payload.Token[i], Data: GcmError{Result: result, MulticastId: response.MulticastID}})
+							gcmLog, err := json.Marshal(GcmLog{NotificationIdentifier: notificationIdentifier, TimeStamp: ts, Type: isSentToClientSuccesfully, GcmId: payload.Token[i], Data: GcmError{Result: result, MulticastId: response.MulticastID}})
 							if err != nil {
 								logger.Printf("Marshal error while logging GCM response = %s", err.Error())
 								olog(fmt.Sprintf("Marshal error while logging GCM response = %s", err.Error()), config.DebugMode)
