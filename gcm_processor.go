@@ -17,7 +17,6 @@ import (
 func gcm_processor(identity int, config Configuration, conn *amqp.Connection, GcmTokenUpdateQueueName,
 GcmStatusInactiveQueueName, GcmQueueName string, ch_gcm_err, ch_gcm_log_success chan []byte, logger *log.Logger,
 killWorker chan int, gcmQueue GcmQueue) {
-	sender := &gcm.Sender{ApiKey: gcmQueue.ApiKey}
 	GcmQueueNameOriginal := GcmQueueName
 	now := time.Now()
 	var hourlyTick <-chan time.Time
@@ -130,7 +129,7 @@ killWorker chan int, gcmQueue GcmQueue) {
 			olog(fmt.Sprintf("%d Worker Received a message: %s", identity, d.Body), config.DebugMode)
 
 		// GCM work
-			payload := Message{}
+			payload := GcmMessage{}
 			err := json.Unmarshal(d.Body, &payload)
 			if err != nil {
 				logger.Printf("Unmarshal error = %s, for MQ message data = %s", err.Error(), d.Body)
@@ -152,6 +151,15 @@ killWorker chan int, gcmQueue GcmQueue) {
 					msg.TimeToLive = payload.TimeToLiveSeconds
 				}
 
+				var notificationIdentifier string
+				if rawNotificationIdentifier, found := data["notificationIdentifier"]; found {
+					notificationIdentifier, _ = rawNotificationIdentifier.(string)
+				}
+				apiKey := payload.GcmApiKey
+				if (len(apiKey) == 0) {
+					apiKey = gcmQueue.ApiKey
+				}
+				sender := &gcm.Sender{ApiKey: apiKey}
 				response, err := sender.Send(msg, 2)
 				if err != nil {
 					// gcmErrCount++
@@ -278,7 +286,7 @@ killWorker chan int, gcmQueue GcmQueue) {
 								isSentToClientSuccesfully = StatusSuccessGcmRequest
 							}
 
-							gcmLog, err := json.Marshal(GcmLog{TimeStamp: ts, Type: isSentToClientSuccesfully, GcmId: payload.Token[i], Data: GcmError{Result: result, MulticastId: response.MulticastID}})
+							gcmLog, err := json.Marshal(GcmLog{NotificationIdentifier: notificationIdentifier, TimeStamp: ts, Type: isSentToClientSuccesfully, GcmId: payload.Token[i], Data: GcmError{Result: result, MulticastId: response.MulticastID}})
 							if err != nil {
 								logger.Printf("Marshal error while logging GCM response = %s", err.Error())
 								olog(fmt.Sprintf("Marshal error while logging GCM response = %s", err.Error()), config.DebugMode)
